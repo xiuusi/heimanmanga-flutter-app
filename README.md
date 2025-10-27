@@ -99,31 +99,6 @@ flutter run
 flutter build web
 ```
 
-### API配置
-应用需要连接到漫画API服务，默认配置为：
-- 基础URL: https://c.xiongouke.top
-- 主要端点: /api/manga, /api/search, /api/tags
-
-## 🎯 核心特性
-
-### 主题系统
-- Material 3 设计语言
-- 统一的颜色方案 (#FF6B6B 主色调)
-- 响应式视觉密度
-- 自定义页面过渡动画
-
-### 图片处理
-- 智能缓存策略
-- 渐进式图片加载
-- 错误重试机制
-- 低内存设备优化
-
-### 用户体验
-- 60fps流畅动画
-- 手势驱动的交互
-- 智能预加载
-- 离线友好设计
-
 ## 📄 相关文档
 
 - [SUMMARY.md](SUMMARY.md) - 项目详细总结
