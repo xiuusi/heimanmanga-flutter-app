@@ -1,0 +1,27 @@
+name: heimanmanga
+description: A manga reading application.
+version: 0.1.10+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0
+  cached_network_image: ^3.3.0
+  # Web optimizations
+  flutter_web_plugins:
+    sdk: flutter
+  url_launcher: ^6.2.2
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  # Web-specific configuration
+  generate: true
