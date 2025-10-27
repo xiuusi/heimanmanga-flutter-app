@@ -67,23 +67,11 @@ flutter run
 flutter build web
 ```
 
-## 📄 相关文档
-
-- [SUMMARY.md](SUMMARY.md) - 项目详细总结
-- [FIXES.md](FIXES.md) - 问题修复记录
-- [READING_PROGRESS_FEATURE.md](READING_PROGRESS_FEATURE.md) - 阅读进度功能说明
-- [flutter_manga_app_lib_documentation.md](flutter_manga_app_lib_documentation.md) - 完整文件说明
-
 ## 📊 版本信息
 
-- **当前版本**: 0.1.10+1
+- **当前版本**: 0.1.10
 - **Flutter SDK**: 3.35.0+
 - **Dart SDK**: 3.9.0+
-- **状态**: 功能完整，已修复所有编译错误
-
-## 🤝 贡献
-
-欢迎提交Issue和Pull Request来改进这个项目！
 
 ## 📄 许可证
 
