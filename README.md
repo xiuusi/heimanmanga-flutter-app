@@ -1,9 +1,18 @@
 # 这是一个完全使用AI编写的应用
-    **本项目完全处于无聊制作**
     
-## 项目截图
-![Screenshot_2025-10-27-19-35-19-95_83a68f094b7e0b1dff4dc74f2c9e8d6c](https://github.com/user-attachments/assets/cffa91fe-7195-4a06-b92e-e038cb5b75dd)![Screenshot_2025-10-27-19-35-44-22_83a68f094b7e0b1dff4dc74f2c9e8d6c](https://github.com/user-attachments/assets/c7eec2b0-3e0b-497c-815b-3a380ee4527d)![Screenshot_2025-10-27-19-35-54-22_83a68f094b7e0b1dff4dc74f2c9e8d6c](https://github.com/user-attachments/assets/143674d3-73ba-421d-85e3-4bd000723a06)![Screenshot_2025-10-27-19-35-24-86_83a68f094b7e0b1dff4dc74f2c9e8d6c](https://github.com/user-attachments/assets/11e1455e-7ecb-4a10-874d-cd6483f5616f)
+## 📸 应用截图
 
+<div align="center">
+
+### 主界面与导航
+<img src="https://github.com/user-attachments/assets/cffa91fe-7195-4a06-b92e-e038cb5b75dd" width="280" alt="主界面">
+<img src="https://github.com/user-attachments/assets/11e1455e-7ecb-4a10-874d-c6483f5616f" width="280" alt="导航页面">
+
+### 搜索与标签
+<img src="https://github.com/user-attachments/assets/c7eec2b0-3e0b-497c-815b-3a380ee4527d" width="280" alt="搜索功能">
+<img src="https://github.com/user-attachments/assets/143674d3-73ba-421d-85e3-4bd000723a06" width="280" alt="标签分类">
+
+</div>
     
 ## 📱 项目结构
 
