@@ -6,7 +6,7 @@
 
 ### 主界面与导航
 <img src="https://github.com/user-attachments/assets/cffa91fe-7195-4a06-b92e-e038cb5b75dd" width="280" alt="主界面">
-<img src="https://github.com/user-attachments/assets/11e1455e-7ecb-4a10-874d-c6483f5616f" width="280" alt="搜索页面">
+<img src="https://github.com/user-attachments/assets/d1a71907-5407-4f24-85b2-2d4daeb29adc" width="280" alt="搜索页面">
 
 ### 搜索与标签
 <img src="https://github.com/user-attachments/assets/c7eec2b0-3e0b-497c-815b-3a380ee4527d" width="280" alt="标签分类">
