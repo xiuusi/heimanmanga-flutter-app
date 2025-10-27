@@ -35,7 +35,7 @@ lib/
     ├── manga_detail_page.dart         # 漫画详情页面
     ├── search_page.dart               # 搜索页面
     ├── tags_page.dart                 # 标签页面
-    ├── enhanced_reader_page.dart      # 增强版阅读器页面
+    ├── enhanced_reader_page.dart      # 阅读器页面
     ├── carousel_widget.dart           # 轮播图组件
     ├── page_transitions.dart          # 页面过渡动画
     ├── loading_animations.dart        # 加载动画组件
