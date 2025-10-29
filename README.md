@@ -41,8 +41,9 @@ lib/
     ├── carousel_widget.dart           # 轮播图组件
     ├── page_transitions.dart          # 页面过渡动画
     ├── loading_animations.dart        # 加载动画组件
-    ├── advanced_animations.dart       # 高级动画组件
-    ~ └── performance_optimized_widgets.dart # 性能优化组件 ~
+    └── advanced_animations.dart       # 高级动画组件
+
+
 ```
 
 ## 🚀 快速开始
