@@ -66,8 +66,8 @@ flutter pub get
 # 运行应用
 flutter run
 
-# 构建Web版本
-flutter build web
+# 构建安卓版本
+flutter build apk
 ```
 
 ## 📊 版本信息
