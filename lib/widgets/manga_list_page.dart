@@ -32,15 +32,19 @@ class _MangaListPageState extends State<MangaListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: CustomScrollView(
-        slivers: [
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: Theme.of(context).primaryColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        child: CustomScrollView(
+          slivers: [
 
           // 轮播图
           SliverToBoxAdapter(
             child: const CarouselWidget(),
           ),
 
-          
+
           // 漫画列表标题
           SliverToBoxAdapter(
             child: Container(
@@ -61,7 +65,7 @@ class _MangaListPageState extends State<MangaListPage> {
                     width: 4,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF6B6B),
+                      color: Theme.of(context).primaryColor,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -151,10 +155,7 @@ class _MangaListPageState extends State<MangaListPage> {
                 return SliverList(
                   delegate: SliverChildListDelegate([
                     // 漫画网格
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildMangaGridWidget(mangaList),
-                    ),
+                    _buildMangaGridWidget(mangaList),
 
                     // 分页控制
                     if (_currentResponse!.totalPages > 1)
@@ -171,7 +172,25 @@ class _MangaListPageState extends State<MangaListPage> {
           ),
         ],
       ),
+    ),
     );
+  }
+
+  // 下拉刷新回调函数
+  Future<void> _onRefresh() async {
+    try {
+      // 重置到第一页
+      setState(() {
+        _currentPage = 1;
+        _mangaListFuture = _fetchMangaList();
+      });
+
+      // 等待数据加载完成
+      await _mangaListFuture;
+    } catch (e) {
+      // 错误处理 - RefreshIndicator 会自动处理错误状态
+      print('下拉刷新失败: $e');
+    }
   }
 
   // 获取漫画列表数据
@@ -225,7 +244,7 @@ class _MangaListPageState extends State<MangaListPage> {
               IconButton(
                 onPressed: currentPage > 1 ? () => _goToPage(currentPage - 1) : null,
                 icon: const Icon(Icons.chevron_left),
-                color: currentPage > 1 ? const Color(0xFFFF6B6B) : Colors.grey,
+                color: currentPage > 1 ? Theme.of(context).primaryColor : Colors.grey,
               ),
 
               // 页码按钮
@@ -235,7 +254,7 @@ class _MangaListPageState extends State<MangaListPage> {
               IconButton(
                 onPressed: currentPage < totalPages ? () => _goToPage(currentPage + 1) : null,
                 icon: const Icon(Icons.chevron_right),
-                color: currentPage < totalPages ? const Color(0xFFFF6B6B) : Colors.grey,
+                color: currentPage < totalPages ? Theme.of(context).primaryColor : Colors.grey,
               ),
             ],
           ),
@@ -291,6 +310,12 @@ class _MangaListPageState extends State<MangaListPage> {
   // 构建单个页码按钮
   Widget _buildPageButton(int pageNumber, int currentPage) {
     final isActive = pageNumber == currentPage;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // 根据主题亮度决定文本颜色
+    final activeTextColor = colorScheme.primary.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    final inactiveTextColor = theme.textTheme.bodyLarge?.color;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -300,16 +325,16 @@ class _MangaListPageState extends State<MangaListPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFFF6B6B) : Colors.transparent,
+            color: isActive ? colorScheme.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: isActive ? const Color(0xFFFF6B6B) : Colors.grey[300]!,
+              color: isActive ? colorScheme.primary : theme.dividerColor,
             ),
           ),
           child: Text(
             '$pageNumber',
             style: TextStyle(
-              color: isActive ? Colors.white : (pageNumber == currentPage ? const Color(0xFFFF6B6B) : Colors.black87),
+              color: isActive ? activeTextColor : inactiveTextColor,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
           ),
