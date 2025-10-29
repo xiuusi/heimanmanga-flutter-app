@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/manga.dart';
 import '../services/api_service.dart';
+import 'manga_detail_page.dart';
 
 class CarouselWidget extends StatefulWidget {
   const CarouselWidget({super.key});
@@ -240,13 +241,10 @@ class _CarouselWidgetState extends State<CarouselWidget>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: GestureDetector(
-          onTap: () async {
-            // 处理轮播图点击事件
+          onTap: () {
+            // 处理轮播图点击事件 - 改为内部跳转
             if (carouselImage.linkUrl.isNotEmpty) {
-              final Uri url = Uri.parse(carouselImage.linkUrl);
-              if (await canLaunchUrl(url)) {
-                await launchUrl(url, mode: LaunchMode.externalApplication);
-              }
+              _handleCarouselTap(context, carouselImage.linkUrl);
             }
           },
           child: Stack(
@@ -352,6 +350,98 @@ class _CarouselWidgetState extends State<CarouselWidget>
       decoration: BoxDecoration(
         color: isActive ? Colors.white : Colors.white.withOpacity(0.5),
         borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+
+  // 处理轮播图点击事件
+  void _handleCarouselTap(BuildContext context, String linkUrl) async {
+    try {
+      // 解析URL
+      final uri = Uri.parse(linkUrl);
+      
+      // 检查是否是漫画详情链接格式
+      if (_isMangaDetailLink(uri)) {
+        // 漫画详情链接 - 内部跳转
+        final mangaId = uri.queryParameters['id'];
+        if (mangaId == null) {
+          _showErrorSnackBar(context, '无效的漫画链接格式');
+          return;
+        }
+
+        // 显示加载对话框
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+            ),
+          ),
+        );
+
+        try {
+          // 获取漫画详情
+          final manga = await MangaApiService.getMangaById(mangaId);
+          
+          // 关闭加载对话框
+          Navigator.of(context).pop();
+
+          // 跳转到漫画详情页
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MangaDetailPage(manga: manga),
+            ),
+          );
+        } catch (e) {
+          // 关闭加载对话框（如果存在）
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          _showErrorSnackBar(context, '加载漫画详情失败: $e');
+        }
+      } else {
+        // 其他链接 - 外部浏览器打开
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          _showErrorSnackBar(context, '无法打开链接');
+        }
+      }
+
+    } catch (e) {
+      _showErrorSnackBar(context, '处理链接失败: $e');
+    }
+  }
+
+  // 判断是否为漫画详情链接
+  bool _isMangaDetailLink(Uri uri) {
+    // 检查主机名和路径
+    final host = uri.host.toLowerCase();
+    final path = uri.path.toLowerCase();
+    
+    // 支持的主机名（可以扩展）
+    final supportedHosts = ['c.xiongouke.top', 'localhost', '127.0.0.1'];
+    
+    // 支持的路径模式（可以扩展）
+    final supportedPaths = ['/manga-detail.html', '/manga/detail'];
+    
+    // 检查是否有漫画ID参数
+    final hasMangaId = uri.queryParameters.containsKey('id');
+    
+    return supportedHosts.contains(host) && 
+           supportedPaths.any((pattern) => path.contains(pattern)) && 
+           hasMangaId;
+  }
+
+  // 显示错误提示
+  void _showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
       ),
     );
   }
