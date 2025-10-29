@@ -1,5 +1,6 @@
 # 这是一个完全使用AI编写的应用
 这个应用是基于我之前用ai写的一个[漫画网站](https://c.xiongouke.top)做配套使用
+本应用主要由Claudecode+deepseekV3.2和qwen-coder-cil完成
 ## 📸 应用截图
 
 <div align="center">
