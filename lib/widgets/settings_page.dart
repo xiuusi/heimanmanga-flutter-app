@@ -28,20 +28,12 @@ class _SettingsPageState extends State<SettingsPage> {
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
 
-      // 添加更明显的调试标识
-      print('🎯🎯🎯 检查更新功能开始执行 🎯🎯🎯');
-      print('📱 当前应用版本: $currentVersion');
-      print('🌐 正在请求GitHub API...');
-
       final response = await http.get(
         Uri.parse('https://api.github.com/repos/xiuusi/heimanmanga-flutter-app/releases'),
       );
 
-      print('📡 GitHub API响应状态码: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final List<dynamic> releases = json.decode(response.body);
-        print('📦 获取到 ${releases.length} 个发布版本');
 
         if (releases.isNotEmpty) {
           final latestRelease = releases.first;
@@ -52,52 +44,36 @@ class _SettingsPageState extends State<SettingsPage> {
             _releaseUrl = latestRelease['html_url'] as String;
           });
 
-          // 输出详细的调试信息
-          print('🔍 版本比较信息:');
-          print('   📱 当前版本: $currentVersion');
-          print('   🚀 GitHub最新版本: $latestVersion');
-
           // 简单版本比较（移除可能的'v'前缀）
           final currentVersionClean = currentVersion.replaceAll('v', '');
           final latestVersionClean = latestVersion.replaceAll('v', '');
 
           final bool hasUpdate = _isNewerVersion(latestVersionClean, currentVersionClean);
-          print('   📊 版本比较结果:');
-          print('      - 当前版本(清理后): $currentVersionClean');
-          print('      - 最新版本(清理后): $latestVersionClean');
-          print('      - 是否需要更新: ${hasUpdate ? "✅ 是" : "❌ 否"}');
 
           if (hasUpdate) {
-            print('🎉 发现新版本！准备显示更新对话框');
             if (mounted) {
               _showUpdateDialog(context);
             }
           } else {
-            print('👍 当前已是最新版本');
             setState(() {
               _updateStatus = '当前为最新版';
             });
           }
         } else {
-          print('⚠️ GitHub releases为空，未找到发布版本');
           setState(() {
             _updateStatus = '未找到发布版本';
           });
         }
       } else {
-        print('❌ GitHub API请求失败，状态码: ${response.statusCode}');
         setState(() {
           _updateStatus = '检查更新失败';
         });
       }
     } catch (e) {
-      print('💥 检查更新异常: $e');
       setState(() {
         _updateStatus = '网络连接失败';
       });
     } finally {
-      print('🏁 检查更新功能执行完成');
-      print('🎯🎯🎯 检查更新功能结束 🎯🎯🎯');
       setState(() {
         _isChecking = false;
       });
