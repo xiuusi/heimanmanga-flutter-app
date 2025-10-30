@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'manga_list_page.dart';
 import 'search_page.dart';
 import 'tags_page.dart';
+import 'settings_page.dart';
 import '../utils/theme_manager.dart';
 
 class MainNavigationPage extends StatefulWidget {
@@ -95,6 +96,16 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
             icon: _buildThemeIcon(),
             onPressed: _toggleTheme,
             tooltip: _buildThemeTooltip(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+            tooltip: '设置',
           ),
         ],
       ),
