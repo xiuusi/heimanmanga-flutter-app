@@ -1,5 +1,6 @@
-
-<img src="https://github.com/user-attachments/assets/a13e97b8-2112-4a0c-9d61-640c6e9c10db" width="280" alt="icon">
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/a13e97b8-2112-4a0c-9d61-640c6e9c10db" width="280" alt="icon">
+</div>
 
 # 这是一个完全使用AI编写的应用
 这个应用是基于我之前用ai写的一个[漫画网站](https://c.xiongouke.top)做配套使用
