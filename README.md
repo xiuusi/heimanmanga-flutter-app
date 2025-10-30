@@ -1,5 +1,4 @@
 
-<img width="512" height="512" alt="app_icon_draft" src="https://github.com/user-attachments/assets/a13e97b8-2112-4a0c-9d61-640c6e9c10db" />
 <img src="https://github.com/user-attachments/assets/a13e97b8-2112-4a0c-9d61-640c6e9c10db" width="280" alt="icon">
 
 # 这是一个完全使用AI编写的应用
