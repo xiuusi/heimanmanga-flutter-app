@@ -32,3 +32,6 @@ flutter:
   uses-material-design: true
   # Web-specific configuration
   generate: true
+
+  assets:
+    - assets/app_icon_draft.png
