@@ -12,6 +12,11 @@ class CarouselWidget extends StatefulWidget {
   State<CarouselWidget> createState() => _CarouselWidgetState();
 }
 
+// 为轮播图组件添加一个GlobalKey类型，以便外部可以调用其方法
+class CarouselWidgetKey extends GlobalKey<_CarouselWidgetState> {
+  const CarouselWidgetKey() : super.constructor();
+}
+
 class _CarouselWidgetState extends State<CarouselWidget>
     with TickerProviderStateMixin {
   late PageController _pageController;
@@ -52,6 +57,15 @@ class _CarouselWidgetState extends State<CarouselWidget>
         _isLoading = false;
       });
     }
+  }
+
+  // 公共方法：重新加载轮播图数据
+  Future<void> reloadCarouselData() async {
+    setState(() {
+      _isLoading = true;
+      _currentIndex = 0;
+    });
+    await _loadCarouselData();
   }
 
   void _startAutoPlay() {

@@ -20,6 +20,7 @@ class _MangaListPageState extends State<MangaListPage> {
   int _currentPage = 1;
   final int _pageSize = 20;
   MangaListResponse? _currentResponse;
+  final CarouselWidgetKey _carouselKey = const CarouselWidgetKey();
 
   @override
   void initState() {
@@ -41,7 +42,7 @@ class _MangaListPageState extends State<MangaListPage> {
 
           // 轮播图
           SliverToBoxAdapter(
-            child: const CarouselWidget(),
+            child: CarouselWidget(key: _carouselKey),
           ),
 
 
@@ -185,7 +186,12 @@ class _MangaListPageState extends State<MangaListPage> {
         _mangaListFuture = _fetchMangaList();
       });
 
-      // 等待数据加载完成
+      // 同时重新加载轮播图数据
+      if (_carouselKey.currentState != null) {
+        await _carouselKey.currentState!.reloadCarouselData();
+      }
+
+      // 等待漫画列表数据加载完成
       await _mangaListFuture;
     } catch (e) {
       // 错误处理 - RefreshIndicator 会自动处理错误状态
