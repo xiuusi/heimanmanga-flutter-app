@@ -71,7 +71,7 @@ flutter pub get
 flutter run
 
 # 构建安卓版本
-flutter build apk
+flutter build apk --split-per-abi --release
 ```
 
 ## 📊 版本信息
