@@ -318,6 +318,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                           child: EnhancedReaderPage(
                             manga: manga,
                             chapter: chapter,
+                            chapters: manga.chapters,
                           ),
                           transitionBuilder: PageTransitions.fadeTransition,
                         ),
