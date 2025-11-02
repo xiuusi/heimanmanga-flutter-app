@@ -12,7 +12,6 @@ class DriftReadingProgressManager implements ReadingProgressManager {
     if (_database == null) {
       _database = AppDatabase();
     }
-    print('[DriftReadingProgressManager] 初始化Drift存储管理器');
   }
 
   @override
@@ -82,7 +81,6 @@ class DriftReadingProgressManager implements ReadingProgressManager {
       );
     }
 
-    print('[DriftReadingProgressManager] 保存进度: ${manga.id}_${chapter.id}, 页码: $currentPage/$totalPages');
   }
 
   @override
@@ -166,7 +164,6 @@ class DriftReadingProgressManager implements ReadingProgressManager {
       );
     }
 
-    print('[DriftReadingProgressManager] 标记章节状态: ${mangaId}_$chapterId, 已阅读: $isRead');
   }
 
   @override
