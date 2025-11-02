@@ -10,13 +10,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 // 调试开关
-const bool DEBUG_READER = true;
-
-void _debugPrint(String message) {
-  if (DEBUG_READER) {
-    print('[Reader] $message');
-  }
-}
+const bool DEBUG_READER = false;
 
 /// 增强版阅读器页面（Mihon风格）
 class EnhancedReaderPage extends StatefulWidget {
@@ -180,25 +174,19 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   /// 加载阅读进度
   Future<void> _loadReadingProgress() async {
-    _debugPrint('开始加载阅读进度 - 漫画: ${widget.manga.id}, 章节: ${widget.chapter.id}');
-
     try {
       await _progressService.init();
       // 按章节获取阅读进度
       _existingProgress = await _progressService.getProgress(widget.manga.id, chapterId: widget.chapter.id);
 
       if (_existingProgress != null && mounted) {
-        _debugPrint('找到现有进度: 页码 ${_existingProgress!.currentPage}/${_existingProgress!.totalPages}, 已阅读: ${_existingProgress!.isMarkedAsRead}');
         // 检查是否需要显示跳转提示（仅当是当前章节且有进度时）
         if (_existingProgress!.shouldPromptJump(widget.chapter.id)) {
-          _debugPrint('显示跳转提示');
           _showJumpToProgressPrompt();
         }
-      } else {
-        _debugPrint('无现有阅读进度');
       }
     } catch (e) {
-      _debugPrint('加载阅读进度失败: $e');
+      // 加载阅读进度失败
     }
   }
 
@@ -279,36 +267,27 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   /// 标记当前章节为已阅读
   Future<void> _markCurrentChapterAsRead() async {
-    _debugPrint('开始标记当前章节为已阅读');
-
     try {
       final currentChapter = _getCurrentChapter();
-      _debugPrint('标记章节: ${currentChapter.id} - ${currentChapter.title}');
 
       await _progressService.markChapterAsRead(
         mangaId: widget.manga.id,
         chapterId: currentChapter.id,
         isRead: true,
       );
-
-      _debugPrint('章节标记完成');
     } catch (e) {
-      _debugPrint('自动标记章节失败: $e');
+      // 自动标记章节失败
     }
   }
 
   /// 保存阅读进度
   Future<void> _saveReadingProgress() async {
     if (_imageUrls.isEmpty) {
-      _debugPrint('保存失败: 图片URL为空');
       return;
     }
 
-    _debugPrint('保存阅读进度 - 当前页: $_currentPage, 总页数: ${_imageUrls.length}');
-
     try {
       final currentChapter = _getCurrentChapter();
-      _debugPrint('保存章节: ${currentChapter.id} - ${currentChapter.title}');
 
       await _progressService.saveProgress(
         manga: widget.manga,
@@ -316,10 +295,8 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         currentPage: _currentPage,
         totalPages: _imageUrls.length,
       );
-
-      _debugPrint('阅读进度保存成功');
     } catch (e) {
-      _debugPrint('保存阅读进度失败: $e');
+      // 保存阅读进度失败
     }
   }
 
@@ -632,7 +609,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   @override
   void dispose() {
-    _debugPrint('阅读器页面销毁，保存最终进度');
     // 退出时保存最终进度
     _saveReadingProgress();
 
@@ -783,13 +759,11 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
         // 检测是否到达章节末尾（通过滑动翻页时）
         if (index == _imageUrls.length - 1) {
-          _debugPrint('到达章节末尾，自动标记为已阅读');
           // 到达章节末尾，自动标记为已阅读
           _markCurrentChapterAsRead();
           // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
           Future.delayed(Duration(milliseconds: 500), () {
             if (mounted && _currentPage == _imageUrls.length - 1) {
-              _debugPrint('显示章节过渡画面');
               _showChapterTransition();
             }
           });
@@ -821,13 +795,11 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
             // 检测是否到达章节末尾（垂直滚动模式）
             if (currentPage == _imageUrls.length - 1) {
-              _debugPrint('垂直滚动到达章节末尾，自动标记为已阅读');
               // 到达章节末尾，自动标记为已阅读
               _markCurrentChapterAsRead();
               // 延迟一小段时间再显示过渡画面
               Future.delayed(Duration(milliseconds: 500), () {
                 if (mounted && _currentPage == _imageUrls.length - 1) {
-                  _debugPrint('显示章节过渡画面');
                   _showChapterTransition();
                 }
               });
