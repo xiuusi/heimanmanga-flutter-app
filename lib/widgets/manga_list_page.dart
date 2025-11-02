@@ -195,7 +195,6 @@ class _MangaListPageState extends State<MangaListPage> {
       await _mangaListFuture;
     } catch (e) {
       // 错误处理 - RefreshIndicator 会自动处理错误状态
-      print('下拉刷新失败: $e');
     }
   }
 

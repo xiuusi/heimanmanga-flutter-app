@@ -13,12 +13,14 @@ import 'dart:math' as math;
 class EnhancedReaderPage extends StatefulWidget {
   final Manga manga;
   final Chapter chapter;
+  final List<Chapter> chapters;  // 完整的章节列表
   final ReadingGestureConfig? initialConfig;
 
   const EnhancedReaderPage({
     Key? key,
     required this.manga,
     required this.chapter,
+    required this.chapters,  // 添加章节列表参数
     this.initialConfig,
   }) : super(key: key);
 
@@ -38,6 +40,10 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   bool _isLoading = true;
   String? _errorMessage;
   List<String> _imageUrls = [];
+
+  // 章节跳转状态
+  int _currentChapterIndex = 0;
+  bool _isLoadingNextChapter = false;
 
   // UI状态
   Timer? _hideTimer;
@@ -78,8 +84,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     // 初始化配置
     _config = widget.initialConfig ?? ReadingGestureConfig();
     _readingDirection = _config.readingDirection;
-    
-    
+
+    // 初始化当前章节索引
+    _currentChapterIndex = widget.chapters.indexWhere((chapter) => chapter.id == widget.chapter.id);
+    if (_currentChapterIndex == -1) {
+      _currentChapterIndex = 0;
+    }
 
     // 初始化控制器
     _pageController = PageController(initialPage: _currentPage);
@@ -163,11 +173,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   Future<void> _loadReadingProgress() async {
     try {
       await _progressManager.init();
-      _existingProgress = await _progressManager.getProgress(widget.manga.id);
+      // 按章节获取阅读进度
+      _existingProgress = await _progressManager.getProgress(widget.manga.id, chapterId: widget.chapter.id);
 
       if (_existingProgress != null && mounted) {
-        // 检查是否需要显示跳转提示
-        if (_existingProgress!.shouldPromptJump()) {
+        // 检查是否需要显示跳转提示（仅当是当前章节且有进度时）
+        if (_existingProgress!.shouldPromptJump(widget.chapter.id)) {
           _showJumpToProgressPrompt();
         }
       }
@@ -214,6 +225,14 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     );
   }
 
+  /// 获取当前章节
+  Chapter _getCurrentChapter() {
+    if (_currentChapterIndex >= 0 && _currentChapterIndex < widget.chapters.length) {
+      return widget.chapters[_currentChapterIndex];
+    }
+    return widget.chapter;
+  }
+
   /// 跳转到进度位置
   void _jumpToProgress() {
     if (_existingProgress == null || _imageUrls.isEmpty) return;
@@ -243,6 +262,21 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     _showSnackBar('已跳转到第 ${targetPage + 1} 页');
   }
 
+  /// 标记当前章节为已阅读
+  Future<void> _markCurrentChapterAsRead() async {
+    try {
+      final currentChapter = _getCurrentChapter();
+
+      await _progressManager.markChapterAsRead(
+        mangaId: widget.manga.id,
+        chapterId: currentChapter.id,
+        isRead: true,
+      );
+    } catch (e) {
+      // 自动标记章节失败
+    }
+  }
+
   /// 保存阅读进度
   Future<void> _saveReadingProgress() async {
     if (_imageUrls.isEmpty) {
@@ -250,9 +284,11 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     }
 
     try {
+      final currentChapter = _getCurrentChapter();
+
       await _progressManager.saveProgress(
         manga: widget.manga,
-        chapter: widget.chapter,
+        chapter: currentChapter,  // 使用当前章节
         currentPage: _currentPage,
         totalPages: _imageUrls.length,
       );
@@ -392,6 +428,167 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
+    } else {
+      // 到达章节末尾，自动标记为已阅读并显示过渡画面
+      _markCurrentChapterAsRead();
+      _showChapterTransition();
+    }
+  }
+
+
+  /// 显示章节过渡画面
+  Future<void> _showChapterTransition() async {
+    final nextChapterIndex = _currentChapterIndex + 1;
+
+    // 检查是否有下一章
+    if (nextChapterIndex >= widget.chapters.length) {
+      // 没有下一章，显示提示
+      _showTransitionDialog('已是最后一章', '您已经阅读完所有章节');
+      return;
+    }
+
+    // 有下一章，显示过渡画面并自动跳转
+    final nextChapter = widget.chapters[nextChapterIndex];
+    _showTransitionDialog(
+      '正在前往下一章',
+      '第${nextChapter.number}话: ${nextChapter.title}',
+      onConfirm: () => _loadNextChapter(nextChapterIndex),
+    );
+  }
+
+  /// 显示过渡对话框
+  void _showTransitionDialog(String title, String message, {VoidCallback? onConfirm}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.black.withOpacity(0.9),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        content: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                onConfirm != null ? Icons.arrow_forward : Icons.check,
+                color: Color(0xFFFF6B6B),
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        actions: onConfirm != null
+            ? [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    '取消',
+                    style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    onConfirm();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFFF6B6B),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('前往下一章'),
+                ),
+              ]
+            : [
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFFF6B6B),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('确定'),
+                ),
+              ],
+      ),
+    );
+  }
+
+  /// 加载下一章节
+  Future<void> _loadNextChapter(int nextChapterIndex) async {
+    if (_isLoadingNextChapter) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingNextChapter = true;
+    });
+
+    try {
+      final nextChapter = widget.chapters[nextChapterIndex];
+
+      // 加载新章节图片
+      final apiImageFiles = await MangaApiService.getChapterImageFiles(
+        widget.manga.id,
+        nextChapter.id,
+      );
+
+      if (apiImageFiles.isNotEmpty) {
+        List<String> newImageUrls = [];
+        for (String fileName in apiImageFiles) {
+          newImageUrls.add(
+            MangaApiService.getChapterImageUrl(
+              widget.manga.id,
+              nextChapter.id,
+              fileName,
+            ),
+          );
+        }
+
+        setState(() {
+          _currentChapterIndex = nextChapterIndex;
+          _currentPage = 0;
+          _imageUrls = newImageUrls;
+          _isLoadingNextChapter = false;
+        });
+
+        // 重置页面控制器
+        _pageController.jumpToPage(0);
+
+        // 保存新章节的阅读进度
+        _saveReadingProgress();
+
+        _showSnackBar('已切换到第${nextChapter.number}章: ${nextChapter.title}');
+      } else {
+        setState(() {
+          _isLoadingNextChapter = false;
+        });
+        _showSnackBar('无法获取下一章图片列表');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingNextChapter = false;
+      });
+      _showSnackBar('加载下一章失败');
     }
   }
 
@@ -553,6 +750,18 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         if (_showControls) {
           _startHideTimer();
         }
+
+        // 检测是否到达章节末尾（通过滑动翻页时）
+        if (index == _imageUrls.length - 1) {
+          // 到达章节末尾，自动标记为已阅读
+          _markCurrentChapterAsRead();
+          // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
+          Future.delayed(Duration(milliseconds: 500), () {
+            if (mounted && _currentPage == _imageUrls.length - 1) {
+              _showChapterTransition();
+            }
+          });
+        }
       },
       itemCount: _imageUrls.length,
       reverse: _readingDirection == ReadingDirection.rightToLeft,
@@ -577,6 +786,18 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             });
             // 滚动页面切换时保存进度
             _saveReadingProgress();
+
+            // 检测是否到达章节末尾（垂直滚动模式）
+            if (currentPage == _imageUrls.length - 1) {
+              // 到达章节末尾，自动标记为已阅读
+              _markCurrentChapterAsRead();
+              // 延迟一小段时间再显示过渡画面
+              Future.delayed(Duration(milliseconds: 500), () {
+                if (mounted && _currentPage == _imageUrls.length - 1) {
+                  _showChapterTransition();
+                }
+              });
+            }
           }
         }
         return false;
@@ -669,15 +890,29 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 Expanded(
-                  child: Text(
-                    '${widget.manga.title} - 第${widget.chapter.number}章',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.manga.title,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '第${_getCurrentChapter().number}章: ${_getCurrentChapter().title}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],
