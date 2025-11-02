@@ -521,12 +521,15 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
               ]
             : [
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () {
+                    Navigator.of(context).pop(); // 关闭弹窗
+                    Navigator.of(context).pop(); // 退出阅读器
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Color(0xFFFF6B6B),
                     foregroundColor: Colors.white,
                   ),
-                  child: Text('确定'),
+                  child: Text('退出观看'),
                 ),
               ],
       ),
