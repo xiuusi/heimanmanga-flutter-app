@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/manga.dart';
 import '../services/api_service.dart';
+import '../services/reading_progress_service.dart';
 import 'enhanced_reader_page.dart';
 import 'page_transitions.dart';
 import 'loading_animations_simplified.dart';
@@ -18,11 +19,43 @@ class MangaDetailPage extends StatefulWidget {
 
 class _MangaDetailPageState extends State<MangaDetailPage> {
   late Future<Manga> _mangaDetailFuture;
+  final ReadingProgressManager _progressManager = ReadingProgressManager();
+
+  // 用于存储章节阅读状态的Map
+  Map<String, bool> _chapterReadStatus = {};
 
   @override
   void initState() {
     super.initState();
     _mangaDetailFuture = _loadMangaDetail();
+  }
+
+  /// 加载所有章节的阅读状态
+  Future<void> _loadChapterReadStatus(Manga manga) async {
+    final Map<String, bool> statusMap = {};
+
+    for (final chapter in manga.chapters) {
+      final progress = await _progressManager.getProgress(widget.manga.id, chapterId: chapter.id);
+      statusMap[chapter.id] = progress?.isChapterRead() ?? false;
+    }
+
+    // 只有当状态确实发生变化时才更新UI
+    if (mounted && !_areMapsEqual(_chapterReadStatus, statusMap)) {
+      setState(() {
+        _chapterReadStatus = statusMap;
+      });
+    }
+  }
+
+  /// 比较两个Map是否相等
+  bool _areMapsEqual(Map<String, bool> map1, Map<String, bool> map2) {
+    if (map1.length != map2.length) return false;
+
+    for (final key in map1.keys) {
+      if (map1[key] != map2[key]) return false;
+    }
+
+    return true;
   }
 
   Future<Manga> _loadMangaDetail() async {
@@ -86,6 +119,14 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
             );
           }
           final manga = snapshot.data!;
+
+          // 在漫画数据加载完成后，异步加载章节阅读状态（仅第一次）
+          if (_chapterReadStatus.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _loadChapterReadStatus(manga);
+            });
+          }
+
           return SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,50 +326,132 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                 ),
                 itemBuilder: (context, index) {
                   final chapter = manga.chapters[index];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: const Color(0xFFFF6B6B),
-                      foregroundColor: Colors.white,
-                      child: Text(
-                        '${chapter.number}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    title: Text(
-                      chapter.title,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '文件大小: ${(chapter.fileSize / (1024 * 1024)).toStringAsFixed(2)} MB',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                    ),
-                    trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        PageTransitions.customPageRoute(
-                          child: EnhancedReaderPage(
-                            manga: manga,
-                            chapter: chapter,
-                            chapters: manga.chapters,
-                          ),
-                          transitionBuilder: PageTransitions.fadeTransition,
-                        ),
-                      );
+                  final isChapterRead = _chapterReadStatus[chapter.id] ?? false;
+
+                  return GestureDetector(
+                    onLongPress: () {
+                      if (isChapterRead) {
+                        _showCancelReadDialog(context, manga, chapter);
+                      }
                     },
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: isChapterRead
+                            ? Colors.green
+                            : const Color(0xFFFF6B6B),
+                        foregroundColor: Colors.white,
+                        child: Text(
+                          '${chapter.number}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              chapter.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          if (isChapterRead)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.green,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                '已阅读',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        '文件大小: ${(chapter.fileSize / (1024 * 1024)).toStringAsFixed(2)} MB',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                      trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          PageTransitions.customPageRoute(
+                            child: EnhancedReaderPage(
+                              manga: manga,
+                              chapter: chapter,
+                              chapters: manga.chapters,  // 传递完整章节列表
+                            ),
+                            transitionBuilder: PageTransitions.fadeTransition,
+                          ),
+                        );
+
+                        // 从阅读器返回后刷新阅读状态
+                        if (mounted) {
+                          _loadChapterReadStatus(manga);
+                        }
+                      },
+                    ),
                   );
                 },
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 显示取消阅读记录的对话框
+  void _showCancelReadDialog(BuildContext context, Manga manga, Chapter chapter) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('取消阅读记录'),
+        content: Text('确定要取消"${chapter.title}"的阅读记录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _progressManager.markChapterAsRead(
+                mangaId: manga.id,
+                chapterId: chapter.id,
+                isRead: false,
+              );
+              Navigator.of(context).pop();
+
+              // 立即更新本地状态，确保UI实时响应
+              setState(() {
+                _chapterReadStatus[chapter.id] = false;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('确定取消'),
+          ),
+        ],
       ),
     );
   }
