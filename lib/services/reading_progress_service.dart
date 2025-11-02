@@ -10,6 +10,7 @@ class ReadingProgress {
   final DateTime lastReadTime;
   final int totalPages;
   final double readingPercentage;
+  final bool isMarkedAsRead; // 独立的已阅读标记
 
   ReadingProgress({
     required this.mangaId,
@@ -18,6 +19,7 @@ class ReadingProgress {
     required this.lastReadTime,
     required this.totalPages,
     required this.readingPercentage,
+    this.isMarkedAsRead = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -28,6 +30,7 @@ class ReadingProgress {
       'lastReadTime': lastReadTime.toIso8601String(),
       'totalPages': totalPages,
       'readingPercentage': readingPercentage,
+      'isMarkedAsRead': isMarkedAsRead,
     };
   }
 
@@ -39,6 +42,7 @@ class ReadingProgress {
       lastReadTime: DateTime.parse(json['lastReadTime']),
       totalPages: json['totalPages'] ?? 0,
       readingPercentage: (json['readingPercentage'] ?? 0.0).toDouble(),
+      isMarkedAsRead: json['isMarkedAsRead'] ?? false,
     );
   }
 
@@ -48,10 +52,18 @@ class ReadingProgress {
     return (currentPage + 1) / totalPages;
   }
 
-  /// 检查是否应该提示跳转（只要有进度就提示）
-  bool shouldPromptJump() {
-    final shouldJumpByProgress = currentPage > 0; // 只要有阅读进度就提示
+  /// 检查是否应该提示跳转（当前章节有进度且不是第一页）
+  bool shouldPromptJump(String currentChapterId) {
+    // 只有在当前章节有进度且不是第一页时才提示跳转
+    final shouldJumpByProgress = chapterId == currentChapterId && currentPage > 0;
     return shouldJumpByProgress;
+  }
+
+  /// 检查章节是否已阅读（仅使用独立标记，不依赖阅读进度）
+  bool isChapterRead() {
+    // 仅使用独立标记来判断是否已阅读
+    // 一旦标记为已阅读，就永久保持已阅读状态
+    return isMarkedAsRead;
   }
 }
 
@@ -88,6 +100,26 @@ class ReadingProgressManager {
     if (_prefs == null) return;
 
     try {
+      // 获取现有进度数据
+      final existingData = _prefs!.getString(_progressKey) ?? '{}';
+      final Map<String, dynamic> progressMap = json.decode(existingData);
+
+      // 获取或创建当前漫画的章节进度映射
+      final mangaKey = manga.id;
+      if (!progressMap.containsKey(mangaKey)) {
+        progressMap[mangaKey] = {};
+      }
+
+      final Map<String, dynamic> chapterProgressMap = progressMap[mangaKey];
+
+      // 检查是否已有阅读记录
+      bool isMarkedAsRead = false;
+      if (chapterProgressMap.containsKey(chapter.id)) {
+        final existingProgress = ReadingProgress.fromJson(chapterProgressMap[chapter.id]);
+        // 保留原有的已阅读标记 - 一旦标记为已阅读，就永久保持
+        isMarkedAsRead = existingProgress.isMarkedAsRead;
+      }
+
       final progress = ReadingProgress(
         mangaId: manga.id,
         chapterId: chapter.id,
@@ -95,24 +127,23 @@ class ReadingProgressManager {
         lastReadTime: DateTime.now(),
         totalPages: totalPages,
         readingPercentage: ReadingProgress.calculatePercentage(currentPage, totalPages),
+        isMarkedAsRead: isMarkedAsRead, // 保留原有的已阅读标记
       );
 
-      // 获取现有进度数据
-      final existingData = _prefs!.getString(_progressKey) ?? '{}';
-      final Map<String, dynamic> progressMap = json.decode(existingData);
-
-      // 更新或添加当前漫画的进度
-      progressMap[manga.id] = progress.toJson();
+      // 更新或添加当前章节的进度
+      chapterProgressMap[chapter.id] = progress.toJson();
 
       // 保存更新后的数据
       await _prefs!.setString(_progressKey, json.encode(progressMap));
+
+      // 保存阅读进度成功
     } catch (e) {
       // 保存阅读进度失败
     }
   }
 
-  /// 获取指定漫画的阅读进度
-  Future<ReadingProgress?> getProgress(String mangaId) async {
+  /// 获取指定漫画和章节的阅读进度
+  Future<ReadingProgress?> getProgress(String mangaId, {String? chapterId}) async {
     await _ensureInitialized();
 
     if (_prefs == null) return null;
@@ -125,9 +156,34 @@ class ReadingProgressManager {
         return null;
       }
 
-      final progress = ReadingProgress.fromJson(progressMap[mangaId]);
-      return progress;
+      final Map<String, dynamic> chapterProgressMap = progressMap[mangaId];
+
+      // 如果指定了章节ID，获取该章节的进度
+      if (chapterId != null) {
+        if (!chapterProgressMap.containsKey(chapterId)) {
+          return null;
+        }
+        final progress = ReadingProgress.fromJson(chapterProgressMap[chapterId]);
+        return progress;
+      }
+
+      // 如果没有指定章节ID，返回最新的阅读进度
+      if (chapterProgressMap.isEmpty) {
+        return null;
+      }
+
+      // 找到最新的阅读进度
+      ReadingProgress? latestProgress;
+      for (final chapterData in chapterProgressMap.values) {
+        final progress = ReadingProgress.fromJson(chapterData);
+        if (latestProgress == null || progress.lastReadTime.isAfter(latestProgress.lastReadTime)) {
+          latestProgress = progress;
+        }
+      }
+
+      return latestProgress;
     } catch (e) {
+      // 获取阅读进度失败
       return null;
     }
   }
@@ -220,11 +276,82 @@ class ReadingProgressManager {
           readingPercentage: progress.readingPercentage,
         );
 
-        progressMap[mangaId] = updatedProgress.toJson();
-        await _prefs!.setString(_progressKey, json.encode(progressMap));
+        // 更新章节进度
+        if (progressMap.containsKey(mangaId)) {
+          final Map<String, dynamic> chapterProgressMap = progressMap[mangaId];
+          chapterProgressMap[progress.chapterId] = updatedProgress.toJson();
+          await _prefs!.setString(_progressKey, json.encode(progressMap));
+        }
       } catch (e) {
         // 更新阅读时间失败
       }
+    }
+  }
+
+  /// 标记章节为已阅读
+  Future<void> markChapterAsRead({
+    required String mangaId,
+    required String chapterId,
+    required bool isRead,
+  }) async {
+    await _ensureInitialized();
+
+    if (_prefs == null) return;
+
+    try {
+      final existingData = _prefs!.getString(_progressKey) ?? '{}';
+      final Map<String, dynamic> progressMap = json.decode(existingData);
+
+      if (!progressMap.containsKey(mangaId)) {
+        progressMap[mangaId] = {};
+      }
+
+      final Map<String, dynamic> chapterProgressMap = progressMap[mangaId];
+
+      if (isRead) {
+        // 标记为已阅读 - 设置独立标记为true
+        if (chapterProgressMap.containsKey(chapterId)) {
+          final existingProgress = ReadingProgress.fromJson(chapterProgressMap[chapterId]);
+          chapterProgressMap[chapterId] = ReadingProgress(
+            mangaId: mangaId,
+            chapterId: chapterId,
+            currentPage: existingProgress.currentPage,
+            lastReadTime: DateTime.now(),
+            totalPages: existingProgress.totalPages,
+            readingPercentage: existingProgress.readingPercentage,
+            isMarkedAsRead: true, // 设置独立标记
+          ).toJson();
+        } else {
+          // 如果没有现有进度，创建一个标记为已阅读的进度
+          chapterProgressMap[chapterId] = ReadingProgress(
+            mangaId: mangaId,
+            chapterId: chapterId,
+            currentPage: 0,
+            lastReadTime: DateTime.now(),
+            totalPages: 1,
+            readingPercentage: 1.0,
+            isMarkedAsRead: true, // 设置独立标记
+          ).toJson();
+        }
+      } else {
+        // 取消标记 - 清除独立标记，但不删除阅读记录
+        if (chapterProgressMap.containsKey(chapterId)) {
+          final existingProgress = ReadingProgress.fromJson(chapterProgressMap[chapterId]);
+          chapterProgressMap[chapterId] = ReadingProgress(
+            mangaId: mangaId,
+            chapterId: chapterId,
+            currentPage: existingProgress.currentPage,
+            lastReadTime: existingProgress.lastReadTime,
+            totalPages: existingProgress.totalPages,
+            readingPercentage: existingProgress.readingPercentage,
+            isMarkedAsRead: false, // 清除独立标记
+          ).toJson();
+        }
+      }
+
+      await _prefs!.setString(_progressKey, json.encode(progressMap));
+    } catch (e) {
+      // 标记章节状态失败
     }
   }
 
