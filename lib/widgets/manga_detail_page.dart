@@ -8,6 +8,15 @@ import 'page_transitions.dart';
 import 'loading_animations_simplified.dart';
 import '../utils/image_cache_manager.dart';
 
+// 调试开关
+const bool DEBUG_MANGA_DETAIL = true;
+
+void _debugPrint(String message) {
+  if (DEBUG_MANGA_DETAIL) {
+    print('[MangaDetail] $message');
+  }
+}
+
 class MangaDetailPage extends StatefulWidget {
   final Manga manga;
 
@@ -19,7 +28,7 @@ class MangaDetailPage extends StatefulWidget {
 
 class _MangaDetailPageState extends State<MangaDetailPage> {
   late Future<Manga> _mangaDetailFuture;
-  final ReadingProgressManager _progressManager = ReadingProgressManager();
+  final ReadingProgressService _progressService = ReadingProgressService();
 
   // 用于存储章节阅读状态的Map
   Map<String, bool> _chapterReadStatus = {};
@@ -32,18 +41,28 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
 
   /// 加载所有章节的阅读状态
   Future<void> _loadChapterReadStatus(Manga manga) async {
+    _debugPrint('开始加载章节阅读状态 - 漫画: ${manga.id}, 章节数: ${manga.chapters.length}');
+
     final Map<String, bool> statusMap = {};
 
     for (final chapter in manga.chapters) {
-      final progress = await _progressManager.getProgress(widget.manga.id, chapterId: chapter.id);
-      statusMap[chapter.id] = progress?.isChapterRead() ?? false;
+      _debugPrint('检查章节: ${chapter.id} - ${chapter.title}');
+      final progress = await _progressService.getProgress(widget.manga.id, chapterId: chapter.id);
+      final isChapterRead = progress?.isChapterRead() ?? false;
+      statusMap[chapter.id] = isChapterRead;
+      _debugPrint('章节 ${chapter.id} 阅读状态: $isChapterRead');
     }
+
+    _debugPrint('加载完成 - 已阅读章节数: ${statusMap.values.where((v) => v).length}/${manga.chapters.length}');
 
     // 只有当状态确实发生变化时才更新UI
     if (mounted && !_areMapsEqual(_chapterReadStatus, statusMap)) {
+      _debugPrint('状态发生变化，更新UI');
       setState(() {
         _chapterReadStatus = statusMap;
       });
+    } else {
+      _debugPrint('状态无变化，不更新UI');
     }
   }
 
@@ -392,6 +411,8 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                       ),
                       trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
                       onTap: () async {
+                        _debugPrint('点击章节: ${chapter.id} - ${chapter.title}');
+
                         await Navigator.push(
                           context,
                           PageTransitions.customPageRoute(
@@ -404,6 +425,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                           ),
                         );
 
+                        _debugPrint('从阅读器返回，刷新阅读状态');
                         // 从阅读器返回后刷新阅读状态
                         if (mounted) {
                           _loadChapterReadStatus(manga);
@@ -433,7 +455,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await _progressManager.markChapterAsRead(
+              await _progressService.markChapterAsRead(
                 mangaId: manga.id,
                 chapterId: chapter.id,
                 isRead: false,
