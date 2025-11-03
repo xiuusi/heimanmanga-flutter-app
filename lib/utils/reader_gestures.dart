@@ -41,6 +41,7 @@ class TouchGestureHandler {
   final Function(TouchArea area, GestureType gesture) onGesture;
   final Function(double scale) onZoomChanged;
   final Function(Offset offset) onPanChanged;
+  final Function(bool isForward, Offset velocity)? onSwipePage;
 
   ReadingDirection readingDirection;
 
@@ -66,6 +67,7 @@ class TouchGestureHandler {
     required this.onGesture,
     required this.onZoomChanged,
     required this.onPanChanged,
+    this.onSwipePage,
     this.readingDirection = ReadingDirection.rightToLeft,
   });
 
@@ -108,7 +110,7 @@ class TouchGestureHandler {
 
     // 延迟执行单击以等待可能的第二次点击
     _doubleTapTimer?.cancel();
-    _doubleTapTimer = Timer(const Duration(milliseconds: 350), () {
+    _doubleTapTimer = Timer(const Duration(milliseconds: 250), () {
       if (_lastTapTime != null) {
         onGesture(area, GestureType.tap);
         _lastTapTime = null;
@@ -132,9 +134,19 @@ class TouchGestureHandler {
     if (velocityX > velocityY) {
       // 水平滑动
       if (velocity.dx > 0) {
-        onGesture(TouchArea.centerZone, GestureType.swipeRight);
+        // 向右滑动
+        if (onSwipePage != null) {
+          onSwipePage!(false, velocity); // 向左翻页（从右到左阅读方向）
+        } else {
+          onGesture(TouchArea.centerZone, GestureType.swipeRight);
+        }
       } else {
-        onGesture(TouchArea.centerZone, GestureType.swipeLeft);
+        // 向左滑动
+        if (onSwipePage != null) {
+          onSwipePage!(true, velocity); // 向右翻页（从右到左阅读方向）
+        } else {
+          onGesture(TouchArea.centerZone, GestureType.swipeLeft);
+        }
       }
     } else {
       // 垂直滑动
@@ -213,6 +225,7 @@ class EnhancedReaderGestureDetector extends StatefulWidget {
   final Function(String action) onAction;
   final Function(double scale) onZoomChanged;
   final Function(Offset offset) onPanChanged;
+  final Function(bool isForward, Offset velocity)? onSwipePage;
 
   const EnhancedReaderGestureDetector({
     Key? key,
@@ -221,6 +234,7 @@ class EnhancedReaderGestureDetector extends StatefulWidget {
     required this.onAction,
     required this.onZoomChanged,
     required this.onPanChanged,
+    this.onSwipePage,
   }) : super(key: key);
 
   @override
@@ -238,6 +252,7 @@ class _EnhancedReaderGestureDetectorState extends State<EnhancedReaderGestureDet
       onGesture: _handleGesture,
       onZoomChanged: widget.onZoomChanged,
       onPanChanged: widget.onPanChanged,
+      onSwipePage: widget.onSwipePage,
       readingDirection: widget.config.readingDirection,
     );
 
@@ -295,7 +310,7 @@ class _EnhancedReaderGestureDetectorState extends State<EnhancedReaderGestureDet
       onPanEnd: (details) {
         // 检测是否为有效滑动
         final velocity = details.velocity.pixelsPerSecond;
-        if (velocity.distance > 300) {
+        if (velocity.distance > 200) {
           _gestureHandler.handleSwipe(velocity, screenSize.width, screenSize.height);
         }
       },
