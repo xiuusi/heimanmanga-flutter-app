@@ -8,8 +8,6 @@ import 'page_transitions.dart';
 import 'loading_animations_simplified.dart';
 import '../utils/image_cache_manager.dart';
 
-// 调试开关
-const bool DEBUG_MANGA_DETAIL = false;
 
 class MangaDetailPage extends StatefulWidget {
   final Manga manga;

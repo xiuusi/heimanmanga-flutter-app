@@ -10,13 +10,11 @@ import '../utils/page_animation_manager.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
-// 调试开关
-const bool DEBUG_READER = false;
 
 /// 增强版阅读器页面（Mihon风格）
 class EnhancedReaderPage extends StatefulWidget {
   // MethodChannel 定义
-  static const platform = MethodChannel('com.example.heimanmanga/volume_keys');
+  static const platform = MethodChannel('io.xiuusi.heimanmanga/volume_keys');
   final Manga manga;
   final Chapter chapter;
   final List<Chapter> chapters;  // 完整的章节列表
