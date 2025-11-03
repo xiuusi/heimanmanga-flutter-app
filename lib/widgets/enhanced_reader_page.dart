@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/reading_progress_service.dart';
 import '../utils/reader_gestures.dart';
 import '../utils/image_cache_manager.dart';
+import '../utils/page_animation_manager.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -69,7 +70,10 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   // 预加载
   Set<int> _preloadedPages = <int>{};
-  static const int _preloadRange = 3;
+  static const int _preloadRange = 5; // 增加预加载范围
+  static const int _chapterEndPreloadThreshold = 3; // 章节末尾预加载阈值
+  bool _isNearChapterEnd = false;
+  Timer? _nextChapterPreloadTimer;
 
   // 阅读进度
   double _readingProgress = 0.0;
@@ -306,18 +310,113 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     int start = (_currentPage - _preloadRange).clamp(0, _imageUrls.length - 1);
     int end = (_currentPage + _preloadRange).clamp(0, _imageUrls.length - 1);
 
+    // 智能预加载：优先预加载靠近当前页面的图片
+    List<int> pagesToPreload = [];
     for (int i = start; i <= end; i++) {
       if (!_preloadedPages.contains(i)) {
-        _preloadedPages.add(i);
-        precacheImage(
-          CachedNetworkImageProvider(_imageUrls[i]),
-          context,
-          onError: (exception, stackTrace) {
-            _preloadedPages.remove(i);
-          },
-        );
+        pagesToPreload.add(i);
       }
     }
+
+    // 按距离排序，优先预加载靠近当前页面的图片
+    pagesToPreload.sort((a, b) =>
+      (a - _currentPage).abs().compareTo((b - _currentPage).abs())
+    );
+
+    // 渐进式预加载
+    for (int i = 0; i < pagesToPreload.length; i++) {
+      final pageIndex = pagesToPreload[i];
+      _preloadedPages.add(pageIndex);
+
+      // 延迟预加载较远的图片
+      Future.delayed(Duration(milliseconds: i * 50), () {
+        if (mounted) {
+          precacheImage(
+            CachedNetworkImageProvider(_imageUrls[pageIndex]),
+            context,
+            onError: (exception, stackTrace) {
+              _preloadedPages.remove(pageIndex);
+            },
+          );
+        }
+      });
+    }
+
+    // 检查是否需要预加载下一章节
+    _checkNextChapterPreload();
+  }
+
+  /// 检查是否需要预加载下一章节
+  void _checkNextChapterPreload() {
+    if (_imageUrls.isEmpty) return;
+
+    final isNearEnd = _currentPage >= _imageUrls.length - _chapterEndPreloadThreshold;
+
+    // 如果接近章节末尾且还没有预加载下一章节
+    if (isNearEnd && !_isNearChapterEnd) {
+      _isNearChapterEnd = true;
+      _preloadNextChapter();
+    } else if (!isNearEnd && _isNearChapterEnd) {
+      _isNearChapterEnd = false;
+      _cancelNextChapterPreload();
+    }
+  }
+
+  /// 预加载下一章节
+  Future<void> _preloadNextChapter() async {
+    final nextChapterIndex = _currentChapterIndex + 1;
+
+    // 检查是否有下一章
+    if (nextChapterIndex >= widget.chapters.length) {
+      return;
+    }
+
+    // 取消之前的预加载定时器
+    _nextChapterPreloadTimer?.cancel();
+
+    // 延迟预加载，避免影响当前章节的加载性能
+    _nextChapterPreloadTimer = Timer(const Duration(milliseconds: 500), () async {
+      try {
+        final nextChapter = widget.chapters[nextChapterIndex];
+
+        // 获取下一章节的图片列表
+        final apiImageFiles = await MangaApiService.getChapterImageFiles(
+          widget.manga.id,
+          nextChapter.id,
+        );
+
+        if (apiImageFiles.isNotEmpty) {
+          // 预加载下一章节的前几页
+          final preloadCount = math.min(5, apiImageFiles.length);
+
+          for (int i = 0; i < preloadCount; i++) {
+            final imageUrl = MangaApiService.getChapterImageUrl(
+              widget.manga.id,
+              nextChapter.id,
+              apiImageFiles[i],
+            );
+
+            // 使用延迟预加载避免阻塞
+            Future.delayed(Duration(milliseconds: i * 100), () {
+              if (mounted) {
+                precacheImage(
+                  CachedNetworkImageProvider(imageUrl),
+                  context,
+                );
+              }
+            });
+          }
+        }
+      } catch (e) {
+        // 预加载下一章节失败，不影响当前阅读
+      }
+    });
+  }
+
+  /// 取消下一章节预加载
+  void _cancelNextChapterPreload() {
+    _nextChapterPreloadTimer?.cancel();
+    _nextChapterPreloadTimer = null;
   }
 
   void _startHideTimer() {
@@ -417,9 +516,10 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   void _previousPage() {
     if (_currentPage > 0) {
       HapticFeedbackManager.selectionClick();
+      final config = PageAnimationManager().getTapAnimationConfig();
       _pageController.previousPage(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
+        duration: config.duration,
+        curve: config.curve,
       );
     }
   }
@@ -427,14 +527,36 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   void _nextPage() {
     if (_currentPage < _imageUrls.length - 1) {
       HapticFeedbackManager.selectionClick();
+      final config = PageAnimationManager().getTapAnimationConfig();
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
+        duration: config.duration,
+        curve: config.curve,
       );
     } else {
       // 到达章节末尾，自动标记为已阅读并显示过渡画面
       _markCurrentChapterAsRead();
       _showChapterTransition();
+    }
+  }
+
+  /// 滑动翻页
+  void _swipePage(bool isForward, Offset velocity) {
+    if (isForward) {
+      if (_currentPage < _imageUrls.length - 1) {
+        final config = PageAnimationManager().getSwipeAnimationConfig(velocity, true);
+        _pageController.nextPage(
+          duration: config.duration,
+          curve: config.curve,
+        );
+      }
+    } else {
+      if (_currentPage > 0) {
+        final config = PageAnimationManager().getSwipeAnimationConfig(velocity, false);
+        _pageController.previousPage(
+          duration: config.duration,
+          curve: config.curve,
+        );
+      }
     }
   }
 
@@ -580,6 +702,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         // 重置页面控制器
         _pageController.jumpToPage(0);
 
+        // 立即预加载新章节的图片
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _preloadedPages.clear(); // 清空之前的预加载记录
+          _preloadNearbyPages();   // 预加载新章节的图片
+        });
+
         // 保存新章节的阅读进度
         _saveReadingProgress();
 
@@ -616,6 +744,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     _scrollController.dispose();
     _hideTimer?.cancel();
     _progressSaveTimer?.cancel();
+    _nextChapterPreloadTimer?.cancel(); // 清理下一章节预加载定时器
     _settingsAnimationController.dispose();
     _controlsAnimationController.dispose();
 
@@ -708,6 +837,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           setState(() {
             _panOffset = offset;
           });
+        },
+        onSwipePage: (isForward, velocity) {
+          _swipePage(isForward, velocity);
         },
         child: Stack(
           children: [
