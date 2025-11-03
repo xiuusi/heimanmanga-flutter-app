@@ -170,7 +170,7 @@ class ReadingGestureConfig {
   const ReadingGestureConfig({
     this.readingDirection = ReadingDirection.rightToLeft,
     this.tapToZoom = false,
-    this.volumeButtonNavigation = false,
+    this.volumeButtonNavigation = true,
     this.fullscreenOnTap = true,
     this.keepScreenOn = true,
     this.autoHideControlsDelay = const Duration(seconds: 3),
