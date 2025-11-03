@@ -15,6 +15,8 @@ const bool DEBUG_READER = false;
 
 /// 增强版阅读器页面（Mihon风格）
 class EnhancedReaderPage extends StatefulWidget {
+  // MethodChannel 定义
+  static const platform = MethodChannel('com.example.heimanmanga/volume_keys');
   final Manga manga;
   final Chapter chapter;
   final List<Chapter> chapters;  // 完整的章节列表
@@ -33,7 +35,7 @@ class EnhancedReaderPage extends StatefulWidget {
 }
 
 class _EnhancedReaderPageState extends State<EnhancedReaderPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // 基础控制器
   late PageController _pageController;
   late ScrollController _scrollController;
@@ -83,13 +85,34 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   ReadingProgress? _existingProgress;
   bool _hasShownJumpPrompt = false;
 
+  // 音量键监听
+  late FocusNode _focusNode;
+  bool _volumeButtonNavigationEnabled = false;
+  bool _isChannelListenerSetup = false;
+
+  // 最后一章退出逻辑
+  bool _isLastChapterDialogShown = false;
+
   @override
   void initState() {
     super.initState();
 
+    // 注册WidgetsBinding观察者
+    WidgetsBinding.instance.addObserver(this);
+
     // 初始化配置
     _config = widget.initialConfig ?? ReadingGestureConfig();
     _readingDirection = _config.readingDirection;
+    _volumeButtonNavigationEnabled = _config.volumeButtonNavigation;
+
+    // 初始化焦点节点
+    _focusNode = FocusNode();
+
+    // 设置 MethodChannel 监听 - 关键！
+    _setupVolumeKeyListener();
+
+    // 启用音量键拦截
+    _enableVolumeKeyInterception(true);
 
     // 初始化当前章节索引
     _currentChapterIndex = widget.chapters.indexWhere((chapter) => chapter.id == widget.chapter.id);
@@ -125,6 +148,13 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
     // 加载阅读进度
     _loadReadingProgress();
+
+    // 请求焦点以接收按键事件
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('请求焦点，当前焦点状态: ${_focusNode.hasFocus}');
+      _focusNode.requestFocus();
+      print('焦点请求已发送，新焦点状态: ${_focusNode.hasFocus}');
+    });
   }
 
   void _setSystemUI() {
@@ -565,8 +595,8 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
     // 检查是否有下一章
     if (nextChapterIndex >= widget.chapters.length) {
-      // 没有下一章，显示提示
-      _showTransitionDialog('已是最后一章', '您已经阅读完所有章节');
+      // 没有下一章，显示提示并处理连续点击退出逻辑
+      _handleLastChapterReached();
       return;
     }
 
@@ -730,13 +760,73 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     _settingsAnimationController.forward();
   }
 
+  /// 处理到达最后一章的逻辑
+  void _handleLastChapterReached() {
+    if (!_isLastChapterDialogShown) {
+      // 第一次到达最后一章，显示弹窗
+      _isLastChapterDialogShown = true;
+      _showTransitionDialog('已是最后一章', '您已经阅读完所有章节');
+    } else {
+      // 弹窗已经显示过，直接退出观看
+      Navigator.of(context).pop();
+    }
+  }
 
+  /// 设置音量键监听（使用 MethodChannel 与 Android 通信）
+  void _setupVolumeKeyListener() {
+    if (_isChannelListenerSetup || !_volumeButtonNavigationEnabled) {
+      return;
+    }
+
+    // 设置方法调用处理器
+    EnhancedReaderPage.platform.setMethodCallHandler((MethodCall call) async {
+      if (call.method == 'onVolumeKeyPressed') {
+        final String key = call.arguments['key'];
+
+        if (key == 'volume_up') {
+          print('Flutter 接收到：音量加键 - 执行上一页');
+          _previousPage();
+        } else if (key == 'volume_down') {
+          print('Flutter 接收到：音量减键 - 执行下一页');
+          _nextPage();
+        }
+      }
+    });
+
+    _isChannelListenerSetup = true;
+    print('✅ 音量键监听已成功设置（使用 MethodChannel）');
+  }
+
+  /// 启用或禁用音量键拦截
+  Future<void> _enableVolumeKeyInterception(bool enabled) async {
+    try {
+      await EnhancedReaderPage.platform.invokeMethod('setVolumeKeyInterception', {
+        'enabled': enabled,
+      });
+      print('✅ 音量键拦截状态设置为: $enabled');
+    } catch (e) {
+      print('❌ 设置音量键拦截失败: $e');
+    }
+  }
 
 
   @override
+  Future<bool> didPopRoute() async {
+    // 这个方法在Android上会被调用，可以用于处理系统按键
+    print('didPopRoute被调用 - 可能检测到系统按键');
+    return false; // 返回false表示不处理，让系统继续处理
+  }
+
+  @override
   void dispose() {
+    // 移除WidgetsBinding观察者
+    WidgetsBinding.instance.removeObserver(this);
+
     // 退出时保存最终进度
     _saveReadingProgress();
+
+    // 禁用音量键拦截
+    _enableVolumeKeyInterception(false);
 
     _pageController.dispose();
     _scrollController.dispose();
@@ -745,6 +835,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     _nextChapterPreloadTimer?.cancel(); // 清理下一章节预加载定时器
     _settingsAnimationController.dispose();
     _controlsAnimationController.dispose();
+    _focusNode.dispose(); // 清理焦点节点
 
     // 恢复系统UI
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -813,58 +904,64 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       );
     }
 
+    print('构建阅读器页面 - 音量键导航启用: $_volumeButtonNavigationEnabled');
+
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: () {
-          // 如果设置面板打开，点击外部区域关闭它
-          if (_settingsAnimationController.value > 0.5) {
-            _settingsAnimationController.reverse();
-          }
-        },
-        child: EnhancedReaderGestureDetector(
-        config: _config,
-        onAction: _handleAction,
-        onZoomChanged: (scale) {
-          setState(() {
-            _currentScale = scale;
-          });
-        },
-        onPanChanged: (offset) {
-          setState(() {
-            // 如果接收到的是 Offset.zero，表示缩放结束，重置累积偏移量
-            if (offset == Offset.zero) {
-              _cumulativePanOffset = Offset.zero;
-            } else {
-              // 累积平移偏移量，实现平滑拖动
-              _cumulativePanOffset += offset;
+      body: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        child: GestureDetector(
+          onTap: () {
+            // 如果设置面板打开，点击外部区域关闭它
+            if (_settingsAnimationController.value > 0.5) {
+              _settingsAnimationController.reverse();
             }
-            _panOffset = _cumulativePanOffset;
-          });
-        },
-        onSwipePage: (isForward, velocity) {
-          _swipePage(isForward, velocity);
-        },
-        child: Stack(
-          children: [
-            // 主阅读区域
-            _buildReaderContent(),
+          },
+          child: EnhancedReaderGestureDetector(
+            config: _config,
+            onAction: _handleAction,
+            onZoomChanged: (scale) {
+              setState(() {
+                _currentScale = scale;
+              });
+            },
+            onPanChanged: (offset) {
+              setState(() {
+                // 如果接收到的是 Offset.zero，表示缩放结束，重置累积偏移量
+                if (offset == Offset.zero) {
+                  _cumulativePanOffset = Offset.zero;
+                } else {
+                  // 累积平移偏移量，实现平滑拖动
+                  _cumulativePanOffset += offset;
+                }
+                _panOffset = _cumulativePanOffset;
+              });
+            },
+            onSwipePage: (isForward, velocity) {
+              _swipePage(isForward, velocity);
+            },
+            child: Stack(
+              children: [
+                // 主阅读区域
+                _buildReaderContent(),
 
 
-            // 顶部控制栏
-            if (_showControls)
-              _buildTopControls(),
+                // 顶部控制栏
+                if (_showControls)
+                  _buildTopControls(),
 
-            // 底部控制栏
-            if (_showControls)
-              _buildBottomControls(),
+                // 底部控制栏
+                if (_showControls)
+                  _buildBottomControls(),
 
 
-            // 设置面板
-            _buildSettingsPanel(),
-          ],
+                // 设置面板
+                _buildSettingsPanel(),
+              ],
+            ),
+          ),
         ),
-      ),
       ),
     );
   }
