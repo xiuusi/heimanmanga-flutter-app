@@ -93,7 +93,7 @@ lib/
 ### 环境要求
 - Flutter SDK 3.0.0+
 - Dart SDK 3.0.0+
-- 支持平台：Android、iOS、Web、Windows、macOS、Linux （支持但没适配）
+- 支持平台：Android、iOS、Web、Windows、macOS、Linux ~~（支持但没适配）~~
 
 ### 安装与运行
 
