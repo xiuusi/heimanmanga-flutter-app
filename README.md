@@ -11,9 +11,10 @@
 
 ## 📖 项目简介
 
-这是一个完全使用AI辅助开发的Flutter漫画阅读应用，作为配套应用与[漫画网站](https://c.xiongouke.top)
+这是一个完全使用AI辅助AI来开发的Flutter漫画阅读应用，作为配套应用与[漫画网站](https://c.xiongouke.top)
 
 **开发工具**: Claudecode + DeepSeek V3.2 + Qwen-Coder-CIL
+**辅助AI的AI** ChatGPT5 + Gemini2.5pro-search
 
 
 ## 📸 应用截图
