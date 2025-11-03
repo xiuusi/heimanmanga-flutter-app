@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:async';
-import 'dart:math' as math;
 
 /// 触屏区域类型
 enum TouchArea {
@@ -15,9 +13,6 @@ enum TouchArea {
 /// 手势类型
 enum GestureType {
   tap,          // 单击
-  doubleTap,    // 双击
-  longPress,    // 长按
-  tapAndHold,   // 长按并保持
   swipeLeft,    // 左滑
   swipeRight,   // 右滑
   swipeUp,      // 上滑
@@ -48,20 +43,9 @@ class TouchGestureHandler {
   // 触屏检测配置
   static const double _edgeThreshold = 0.2;   // 边缘区域阈值
   static const double _centerThreshold = 0.33; // 中心区域阈值
-  static const Duration _doubleTapTime = Duration(milliseconds: 300);
-  static const Duration _longPressTime = Duration(milliseconds: 500);
 
   // 内部状态
-  DateTime? _lastTapTime;
-  Offset? _lastTapPosition;
-  Timer? _doubleTapTimer;
-  Timer? _longPressTimer;
-  bool _isLongPressing = false;
   double _currentScale = 1.0;
-  double _initialScale = 1.0;
-
-  // 手势状态
-  Offset _currentPanOffset = Offset.zero;
 
   TouchGestureHandler({
     required this.onGesture,
@@ -84,47 +68,10 @@ class TouchGestureHandler {
 
   /// 处理点击事件
   void handleTap(double screenWidth, double localX, double localY) {
-    if (_isLongPressing) {
-      _isLongPressing = false;
-      return;
-    }
-
     final area = _calculateTouchArea(screenWidth, localX);
-    final now = DateTime.now();
-
-    // 检测双击
-    if (_lastTapTime != null &&
-        _lastTapPosition != null &&
-        now.difference(_lastTapTime!) < _doubleTapTime &&
-        (Offset(localX, localY) - _lastTapPosition!).distance < 50) {
-
-      _doubleTapTimer?.cancel();
-      _lastTapTime = null;
-      _lastTapPosition = null;
-      onGesture(area, GestureType.doubleTap);
-      return;
-    }
-
-    _lastTapTime = now;
-    _lastTapPosition = Offset(localX, localY);
-
-    // 延迟执行单击以等待可能的第二次点击
-    _doubleTapTimer?.cancel();
-    _doubleTapTimer = Timer(const Duration(milliseconds: 250), () {
-      if (_lastTapTime != null) {
-        onGesture(area, GestureType.tap);
-        _lastTapTime = null;
-        _lastTapPosition = null;
-      }
-    });
+    onGesture(area, GestureType.tap);
   }
 
-  /// 处理长按事件
-  void handleLongPress(double screenWidth, double localX, double localY) {
-    final area = _calculateTouchArea(screenWidth, localX);
-    _isLongPressing = true;
-    onGesture(area, GestureType.longPress);
-  }
 
   /// 处理滑动事件
   void handleSwipe(Offset velocity, double screenWidth, double screenHeight) {
@@ -158,16 +105,52 @@ class TouchGestureHandler {
     }
   }
 
-  /// 处理缩放事件（由InteractiveViewer处理）
+  /// 处理平移事件（用于检测水平滑动）
+  void handlePanUpdate(Offset translation, Offset focalPoint, double screenWidth) {
+    // 检测是否为有效的水平滑动
+    if (translation.dx.abs() > 20) {
+      // 根据阅读方向判断翻页方向
+      if (readingDirection == ReadingDirection.rightToLeft) {
+        // 从右到左阅读：向右滑动是上一页，向左滑动是下一页
+        if (translation.dx > 0 && onSwipePage != null) {
+          onSwipePage!(false, translation); // 上一页
+        } else if (translation.dx < 0 && onSwipePage != null) {
+          onSwipePage!(true, translation); // 下一页
+        }
+      } else {
+        // 从左到右阅读：向右滑动是下一页，向左滑动是上一页
+        if (translation.dx > 0 && onSwipePage != null) {
+          onSwipePage!(true, translation); // 下一页
+        } else if (translation.dx < 0 && onSwipePage != null) {
+          onSwipePage!(false, translation); // 上一页
+        }
+      }
+    }
+  }
+
+
+  /// 处理缩放事件
   void handleZoomChanged(double scale) {
     _currentScale = scale.clamp(0.5, 5.0);
     onZoomChanged(_currentScale);
   }
 
+  /// 处理缩放状态下的平移事件（移动图片）
+  void handlePanInZoom(Offset translation) {
+    onPanChanged(translation);
+  }
+
+  /// 处理缩放结束事件
+  void handleZoomEnd() {
+    // 缩放结束，重置缩放和平移状态
+    _currentScale = 1.0;
+    onZoomChanged(_currentScale);
+    onPanChanged(Offset.zero);
+  }
+
   /// 释放资源
   void dispose() {
-    _doubleTapTimer?.cancel();
-    _longPressTimer?.cancel();
+    // 清理资源
   }
 }
 
@@ -195,24 +178,20 @@ class ReadingGestureConfig {
     this.gestureActions = const {
       TouchArea.leftEdge: {
         GestureType.tap: 'previous_page',
-        GestureType.longPress: 'menu',
       },
       TouchArea.leftZone: {
         GestureType.tap: 'previous_page',
-        GestureType.longPress: 'menu',
       },
       TouchArea.centerZone: {
         GestureType.tap: 'toggle_ui',
-        GestureType.doubleTap: 'zoom_fit',
-        GestureType.longPress: 'menu',
+        GestureType.pinchZoomIn: 'zoom_in',
+        GestureType.pinchZoomOut: 'zoom_out',
       },
       TouchArea.rightZone: {
         GestureType.tap: 'next_page',
-        GestureType.longPress: 'menu',
       },
       TouchArea.rightEdge: {
         GestureType.tap: 'next_page',
-        GestureType.longPress: 'menu',
       },
     },
   });
@@ -289,31 +268,46 @@ class _EnhancedReaderGestureDetectorState extends State<EnhancedReaderGestureDet
         );
       },
 
-      // 长按事件
-      onLongPressStart: (details) {
-        _gestureHandler.handleLongPress(
-          screenSize.width,
-          details.localPosition.dx,
-          details.localPosition.dy,
-        );
+      // 捏合手势
+      onScaleStart: (details) {
+        _currentScale = 1.0;
       },
+      onScaleUpdate: (details) {
+        // 处理缩放
+        if (details.scale != 1.0) {
+          _currentScale = details.scale.clamp(0.5, 5.0);
+          _gestureHandler.handleZoomChanged(_currentScale);
 
-      // 双击事件
-      onDoubleTap: () {
-        final action = widget.config.gestureActions[TouchArea.centerZone]?[GestureType.doubleTap];
-        if (action != null) {
-          widget.onAction(action);
+          // 检测捏合方向
+          if (details.scale > 1.0) {
+            _gestureHandler.onGesture(TouchArea.centerZone, GestureType.pinchZoomIn);
+          } else {
+            _gestureHandler.onGesture(TouchArea.centerZone, GestureType.pinchZoomOut);
+          }
+        }
+
+        // 处理平移：在缩放状态下也可以移动图片
+        if (details.focalPointDelta != Offset.zero) {
+          // 如果是缩放状态下的平移，传递给平移处理
+          if (_currentScale != 1.0) {
+            _gestureHandler.handlePanInZoom(details.focalPointDelta);
+          } else {
+            // 非缩放状态下的平移，用于水平滑动翻页
+            _gestureHandler.handlePanUpdate(
+              details.focalPointDelta,
+              details.focalPoint,
+              screenSize.width
+            );
+          }
         }
       },
-
-      // 简单的拖拽事件（用于翻页）
-      onPanEnd: (details) {
-        // 检测是否为有效滑动
-        final velocity = details.velocity.pixelsPerSecond;
-        if (velocity.distance > 200) {
-          _gestureHandler.handleSwipe(velocity, screenSize.width, screenSize.height);
-        }
+      onScaleEnd: (details) {
+        // 缩放结束，触发自动恢复原样
+        _gestureHandler.handleZoomEnd();
       },
+
+      // 水平滑动检测（通过ScaleGestureRecognizer的平移分量）
+      behavior: HitTestBehavior.opaque,
 
       child: widget.child,
     );
