@@ -223,6 +223,8 @@ class EnhancedReaderGestureDetector extends StatefulWidget {
 class _EnhancedReaderGestureDetectorState extends State<EnhancedReaderGestureDetector> {
   late TouchGestureHandler _gestureHandler;
   double _currentScale = 1.0;
+  int _pointerCount = 0; // 记录当前触摸点数量
+  bool _isTwoFingerGesture = false; // 标记是否为双指手势
 
   @override
   void initState() {
@@ -258,23 +260,38 @@ class _EnhancedReaderGestureDetectorState extends State<EnhancedReaderGestureDet
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
 
-    return GestureDetector(
-      // 点击事件
-      onTapUp: (details) {
-        _gestureHandler.handleTap(
-          screenSize.width,
-          details.localPosition.dx,
-          details.localPosition.dy,
-        );
+    return Listener(
+      onPointerDown: (event) {
+        _pointerCount++;
+        // 当检测到两个或更多触摸点时，标记为双指手势
+        if (_pointerCount >= 2) {
+          _isTwoFingerGesture = true;
+        }
       },
+      onPointerUp: (event) {
+        _pointerCount--;
+        // 当触摸点少于2个时，重置双指手势标记
+        if (_pointerCount < 2) {
+          _isTwoFingerGesture = false;
+        }
+      },
+      child: GestureDetector(
+        // 点击事件
+        onTapUp: (details) {
+          _gestureHandler.handleTap(
+            screenSize.width,
+            details.localPosition.dx,
+            details.localPosition.dy,
+          );
+        },
 
-      // 捏合手势
-      onScaleStart: (details) {
-        _currentScale = 1.0;
-      },
+        // 捏合手势
+        onScaleStart: (details) {
+          _currentScale = 1.0;
+        },
       onScaleUpdate: (details) {
-        // 处理缩放
-        if (details.scale != 1.0) {
+        // 只有在双指手势时才处理缩放
+        if (_isTwoFingerGesture && details.scale != 1.0) {
           _currentScale = details.scale.clamp(0.5, 5.0);
           _gestureHandler.handleZoomChanged(_currentScale);
 
@@ -289,7 +306,7 @@ class _EnhancedReaderGestureDetectorState extends State<EnhancedReaderGestureDet
         // 处理平移：在缩放状态下也可以移动图片
         if (details.focalPointDelta != Offset.zero) {
           // 如果是缩放状态下的平移，传递给平移处理
-          if (_currentScale != 1.0) {
+          if (_currentScale != 1.0 && _isTwoFingerGesture) {
             _gestureHandler.handlePanInZoom(details.focalPointDelta);
           } else {
             // 非缩放状态下的平移，用于水平滑动翻页
@@ -310,6 +327,7 @@ class _EnhancedReaderGestureDetectorState extends State<EnhancedReaderGestureDet
       behavior: HitTestBehavior.opaque,
 
       child: widget.child,
+      ),
     );
   }
 
