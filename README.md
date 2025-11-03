@@ -49,6 +49,7 @@ lib/
 │   ├── theme_manager.dart             # 主题管理器
 │   ├── image_cache_manager.dart       # 图片缓存管理器
 │   ├── memory_manager_simplified.dart # 内存管理器
+│   ├── smart_preload_manager.dart     # 预加载管理器
 │   ├── parsers.dart                   # 数据解析器
 │   └── reader_gestures.dart           # 阅读器手势控制
 └── widgets/
