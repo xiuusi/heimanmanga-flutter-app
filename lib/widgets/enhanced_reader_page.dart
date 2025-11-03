@@ -151,9 +151,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
     // 请求焦点以接收按键事件
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('请求焦点，当前焦点状态: ${_focusNode.hasFocus}');
       _focusNode.requestFocus();
-      print('焦点请求已发送，新焦点状态: ${_focusNode.hasFocus}');
     });
   }
 
@@ -784,17 +782,14 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         final String key = call.arguments['key'];
 
         if (key == 'volume_up') {
-          print('Flutter 接收到：音量加键 - 执行上一页');
           _previousPage();
         } else if (key == 'volume_down') {
-          print('Flutter 接收到：音量减键 - 执行下一页');
           _nextPage();
         }
       }
     });
 
     _isChannelListenerSetup = true;
-    print('✅ 音量键监听已成功设置（使用 MethodChannel）');
   }
 
   /// 启用或禁用音量键拦截
@@ -803,9 +798,8 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       await EnhancedReaderPage.platform.invokeMethod('setVolumeKeyInterception', {
         'enabled': enabled,
       });
-      print('✅ 音量键拦截状态设置为: $enabled');
     } catch (e) {
-      print('❌ 设置音量键拦截失败: $e');
+      // 设置音量键拦截失败
     }
   }
 
@@ -813,7 +807,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   @override
   Future<bool> didPopRoute() async {
     // 这个方法在Android上会被调用，可以用于处理系统按键
-    print('didPopRoute被调用 - 可能检测到系统按键');
     return false; // 返回false表示不处理，让系统继续处理
   }
 
@@ -904,7 +897,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       );
     }
 
-    print('构建阅读器页面 - 音量键导航启用: $_volumeButtonNavigationEnabled');
 
     return Scaffold(
       backgroundColor: Colors.black,
