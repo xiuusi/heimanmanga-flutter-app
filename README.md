@@ -1,14 +1,11 @@
 <div align="center">
   <img src="https://github.com/user-attachments/assets/a13e97b8-2112-4a0c-9d61-640c6e9c10db" width="280" alt="icon">
 
-  # 🎯 嘿！——漫 Flutter漫画应用
-
-  *一个功能完整的跨平台漫画阅读应用*
+  # 🎯 嘿！——漫
 
   [![Flutter](https://img.shields.io/badge/Flutter-3.0.0+-blue.svg)](https://flutter.dev)
   [![Dart](https://img.shields.io/badge/Dart-3.0.0+-blue.svg)](https://dart.dev)
   [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-  [![Platform](https://img.shields.io/badge/Platform-Android%20|%20iOS%20|%20Web%20|%20Windows%20|%20macOS%20|%20Linux-lightgrey.svg)](https://flutter.dev/multi-platform)
 
 </div>
 
