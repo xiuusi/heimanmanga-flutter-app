@@ -56,9 +56,8 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   // 缩放和拖拽
   double _currentScale = 1.0;
-  double _initialScale = 1.0;
   Offset _panOffset = Offset.zero;
-  bool _isZoomed = false;
+  Offset _cumulativePanOffset = Offset.zero;
 
   // 配置
   late ReadingGestureConfig _config;
@@ -478,14 +477,17 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       case 'toggle_ui':
         _toggleUI();
         break;
-      case 'zoom_fit':
-        _toggleZoom();
-        break;
       case 'menu':
         _showSettings();
         break;
       case 'settings':
         _showSettings();
+        break;
+      case 'zoom_in':
+        // 捏合放大已经通过 onZoomChanged 处理
+        break;
+      case 'zoom_out':
+        // 捏合缩小已经通过 onZoomChanged 处理
         break;
     }
   }
@@ -499,19 +501,15 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     }
   }
 
-  void _toggleZoom() {
-    HapticFeedbackManager.lightImpact();
+  /// 重置缩放状态
+  void _resetZoom() {
     setState(() {
-      if (_isZoomed) {
-        _currentScale = 1.0;
-        _isZoomed = false;
-        _panOffset = Offset.zero;
-      } else {
-        _currentScale = 2.0;
-        _isZoomed = true;
-      }
+      _currentScale = 1.0;
+      _panOffset = Offset.zero;
+      _cumulativePanOffset = Offset.zero;
     });
   }
+
 
   void _previousPage() {
     if (_currentPage > 0) {
@@ -830,12 +828,18 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         onZoomChanged: (scale) {
           setState(() {
             _currentScale = scale;
-            _isZoomed = scale > 1.0;
           });
         },
         onPanChanged: (offset) {
           setState(() {
-            _panOffset = offset;
+            // 如果接收到的是 Offset.zero，表示缩放结束，重置累积偏移量
+            if (offset == Offset.zero) {
+              _cumulativePanOffset = Offset.zero;
+            } else {
+              // 累积平移偏移量，实现平滑拖动
+              _cumulativePanOffset += offset;
+            }
+            _panOffset = _cumulativePanOffset;
           });
         },
         onSwipePage: (isForward, velocity) {
@@ -878,6 +882,8 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     return PageView.builder(
       controller: _pageController,
       onPageChanged: (index) {
+        // 页面切换时重置缩放状态
+        _resetZoom();
         setState(() {
           _currentPage = index;
           _readingProgress = index / (_imageUrls.length - 1);
@@ -918,6 +924,8 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           final currentPage = (notification.metrics.pixels / screenHeight).floor().clamp(0, _imageUrls.length - 1);
 
           if (_currentPage != currentPage) {
+            // 页面切换时重置缩放状态
+            _resetZoom();
             setState(() {
               _currentPage = currentPage;
               _readingProgress = currentPage / (_imageUrls.length - 1);
@@ -954,40 +962,39 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   Widget _buildImagePage(String imageUrl) {
     return Container(
       color: Colors.black,
-      child: InteractiveViewer(
-        panEnabled: _isZoomed,
-        boundaryMargin: EdgeInsets.all(100),
-        minScale: 0.5,
-        maxScale: 4.0,
-        transformationController: TransformationController(),
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
-          fit: BoxFit.contain,
-          placeholder: (context, url) => Container(
-            color: Colors.black,
-            child: Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+      child: Transform.scale(
+        scale: _currentScale,
+        child: Transform.translate(
+          offset: _panOffset,
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.contain,
+            placeholder: (context, url) => Container(
+              color: Colors.black,
+              child: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+                ),
               ),
             ),
-          ),
-          errorWidget: (context, url, error) => Container(
-            color: Colors.black,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    color: Color(0xFFFF6B6B),
-                    size: 50,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '图片加载失败',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ],
+            errorWidget: (context, url, error) => Container(
+              color: Colors.black,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: Color(0xFFFF6B6B),
+                      size: 50,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '图片加载失败',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
