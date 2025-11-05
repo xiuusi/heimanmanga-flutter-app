@@ -15,7 +15,7 @@
 
 **开发工具**: Claudecode + DeepSeek V3.2 + Qwen-Coder-CIL
 
-**辅助AI的AI**: ChatGPT5 + Gemini2.5pro-search
+**辅助AI的AI**: ChatGPT5 + Gemini2.5pro-search + Claude-haiku-4-5
 
 
 ## 📸 应用截图
