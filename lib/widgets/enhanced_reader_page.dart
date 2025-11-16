@@ -91,6 +91,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   // 最后一章退出逻辑
   bool _isLastChapterDialogShown = false;
 
+  // 手势处理器引用
+  TouchGestureHandler? _gestureHandler;
+
   @override
   void initState() {
     super.initState();
@@ -267,6 +270,40 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   /// 跳转到进度位置
   void _jumpToProgress() {
+    if (_existingProgress == null) return;
+
+    // 如果图片还没有加载完成，等待加载完成后再跳转
+    if (_imageUrls.isEmpty) {
+      _showSnackBar('正在加载图片，请稍后...');
+      // 设置一个监听器，当图片加载完成后自动跳转
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _waitForImagesAndJump();
+      });
+      return;
+    }
+
+    _performJumpToProgress();
+  }
+
+  /// 等待图片加载完成后执行跳转
+  void _waitForImagesAndJump() async {
+    // 最多等待5秒
+    final maxWaitTime = Duration(seconds: 5);
+    final startTime = DateTime.now();
+
+    while (_imageUrls.isEmpty && DateTime.now().difference(startTime) < maxWaitTime) {
+      await Future.delayed(Duration(milliseconds: 100));
+    }
+
+    if (_imageUrls.isNotEmpty && mounted) {
+      _performJumpToProgress();
+    } else if (mounted) {
+      _showSnackBar('图片加载超时，请重试');
+    }
+  }
+
+  /// 执行实际的跳转逻辑
+  void _performJumpToProgress() {
     if (_existingProgress == null || _imageUrls.isEmpty) return;
 
     final targetPage = _existingProgress!.currentPage.clamp(0, _imageUrls.length - 1);
@@ -529,6 +566,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   /// 重置缩放状态
   void _resetZoom() {
+    // 取消缩放重置计时器
+    _gestureHandler?.cancelZoomReset();
+
     setState(() {
       _currentScale = 1.0;
       _panOffset = Offset.zero;
@@ -819,6 +859,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     // 禁用音量键拦截
     _enableVolumeKeyInterception(false);
 
+    // 清理手势处理器
+    _gestureHandler?.dispose();
+
     _pageController.dispose();
     _scrollController.dispose();
     _hideTimer?.cancel();
@@ -930,6 +973,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             },
             onSwipePage: (isForward, velocity) {
               _swipePage(isForward, velocity);
+            },
+            onGestureHandlerCreated: (gestureHandler) {
+              _gestureHandler = gestureHandler;
             },
             child: Stack(
               children: [
