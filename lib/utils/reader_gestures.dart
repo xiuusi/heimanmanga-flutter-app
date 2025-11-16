@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 
 /// 触屏区域类型
 enum TouchArea {
@@ -46,6 +47,8 @@ class TouchGestureHandler {
 
   // 内部状态
   double _currentScale = 1.0;
+  Timer? _zoomResetTimer;
+  static const Duration _zoomResetDelay = Duration(seconds: 10);
 
   TouchGestureHandler({
     required this.onGesture,
@@ -142,15 +145,35 @@ class TouchGestureHandler {
 
   /// 处理缩放结束事件
   void handleZoomEnd() {
-    // 缩放结束，重置缩放和平移状态
-    _currentScale = 1.0;
-    onZoomChanged(_currentScale);
-    onPanChanged(Offset.zero);
+    // 取消之前的重置计时器
+    _zoomResetTimer?.cancel();
+
+    // 如果当前缩放比例不是1.0，则启动延迟重置计时器
+    if (_currentScale != 1.0) {
+      _zoomResetTimer = Timer(_zoomResetDelay, () {
+        // 延迟10秒后重置缩放和平移状态
+        _currentScale = 1.0;
+        onZoomChanged(_currentScale);
+        onPanChanged(Offset.zero);
+      });
+    } else {
+      // 如果已经是1.0，立即重置
+      _currentScale = 1.0;
+      onZoomChanged(_currentScale);
+      onPanChanged(Offset.zero);
+    }
+  }
+
+  /// 取消缩放重置计时器（用于页面切换等情况）
+  void cancelZoomReset() {
+    _zoomResetTimer?.cancel();
+    _zoomResetTimer = null;
   }
 
   /// 释放资源
   void dispose() {
-    // 清理资源
+    _zoomResetTimer?.cancel();
+    _zoomResetTimer = null;
   }
 }
 
@@ -205,6 +228,7 @@ class EnhancedReaderGestureDetector extends StatefulWidget {
   final Function(double scale) onZoomChanged;
   final Function(Offset offset) onPanChanged;
   final Function(bool isForward, Offset velocity)? onSwipePage;
+  final Function(TouchGestureHandler? gestureHandler)? onGestureHandlerCreated;
 
   const EnhancedReaderGestureDetector({
     Key? key,
@@ -214,6 +238,7 @@ class EnhancedReaderGestureDetector extends StatefulWidget {
     required this.onZoomChanged,
     required this.onPanChanged,
     this.onSwipePage,
+    this.onGestureHandlerCreated,
   }) : super(key: key);
 
   @override
@@ -236,6 +261,9 @@ class _EnhancedReaderGestureDetectorState extends State<EnhancedReaderGestureDet
       onSwipePage: widget.onSwipePage,
       readingDirection: widget.config.readingDirection,
     );
+
+    // 通知父组件手势处理器已创建
+    widget.onGestureHandlerCreated?.call(_gestureHandler);
 
     // 保持屏幕常亮
     if (widget.config.keepScreenOn) {
