@@ -26,9 +26,9 @@ class DriftReadingProgressManager implements ReadingProgressManager {
     // 查找或创建漫画进度
     final mangaQuery = _database!.select(_database!.mangaProgresses)
       ..where((tbl) => tbl.mangaId.equals(manga.id));
-    final mangaProgress = await mangaQuery.getSingleOrNull();
+    final mangaProgressList = await mangaQuery.get();
 
-    if (mangaProgress == null) {
+    if (mangaProgressList.isEmpty) {
       await _database!.into(_database!.mangaProgresses).insert(
         MangaProgressesCompanion.insert(
           mangaId: manga.id,
@@ -39,6 +39,7 @@ class DriftReadingProgressManager implements ReadingProgressManager {
         ),
       );
     } else {
+      final mangaProgress = mangaProgressList.first;
       await (_database!.update(_database!.mangaProgresses)
             ..where((tbl) => tbl.id.equals(mangaProgress.id)))
           .write(
@@ -51,9 +52,9 @@ class DriftReadingProgressManager implements ReadingProgressManager {
     // 查找或创建章节进度
     final chapterQuery = _database!.select(_database!.chapterProgresses)
       ..where((tbl) => tbl.chapterId.equals(chapter.id));
-    final chapterProgress = await chapterQuery.getSingleOrNull();
+    final chapterProgressList = await chapterQuery.get();
 
-    if (chapterProgress == null) {
+    if (chapterProgressList.isEmpty) {
       await _database!.into(_database!.chapterProgresses).insert(
         ChapterProgressesCompanion.insert(
           chapterId: chapter.id,
@@ -68,6 +69,7 @@ class DriftReadingProgressManager implements ReadingProgressManager {
         ),
       );
     } else {
+      final chapterProgress = chapterProgressList.first;
       // 保留原有的已阅读标记
       await (_database!.update(_database!.chapterProgresses)
             ..where((tbl) => tbl.id.equals(chapterProgress.id)))
@@ -90,9 +92,10 @@ class DriftReadingProgressManager implements ReadingProgressManager {
     if (chapterId != null) {
       final chapterQuery = _database!.select(_database!.chapterProgresses)
         ..where((tbl) => tbl.chapterId.equals(chapterId));
-      final chapterProgress = await chapterQuery.getSingleOrNull();
+      final chapterProgressList = await chapterQuery.get();
 
-      if (chapterProgress != null) {
+      if (chapterProgressList.isNotEmpty) {
+        final chapterProgress = chapterProgressList.first;
         return ReadingProgress(
           mangaId: chapterProgress.mangaId,
           chapterId: chapterProgress.chapterId,
@@ -108,9 +111,10 @@ class DriftReadingProgressManager implements ReadingProgressManager {
       final latestQuery = _database!.select(_database!.chapterProgresses)
         ..where((tbl) => tbl.mangaId.equals(mangaId))
         ..orderBy([(tbl) => OrderingTerm.desc(tbl.lastReadTime)]);
-      final latestChapterProgress = await latestQuery.getSingleOrNull();
+      final latestChapterProgressList = await latestQuery.get();
 
-      if (latestChapterProgress != null) {
+      if (latestChapterProgressList.isNotEmpty) {
+        final latestChapterProgress = latestChapterProgressList.first;
         return ReadingProgress(
           mangaId: latestChapterProgress.mangaId,
           chapterId: latestChapterProgress.chapterId,
@@ -136,9 +140,10 @@ class DriftReadingProgressManager implements ReadingProgressManager {
 
     final chapterQuery = _database!.select(_database!.chapterProgresses)
       ..where((tbl) => tbl.chapterId.equals(chapterId));
-    final chapterProgress = await chapterQuery.getSingleOrNull();
+    final chapterProgressList = await chapterQuery.get();
 
-    if (chapterProgress != null) {
+    if (chapterProgressList.isNotEmpty) {
+      final chapterProgress = chapterProgressList.first;
       await (_database!.update(_database!.chapterProgresses)
             ..where((tbl) => tbl.id.equals(chapterProgress.id)))
           .write(
