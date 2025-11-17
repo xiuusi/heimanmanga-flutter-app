@@ -106,6 +106,16 @@ class Chapter {
     return MangaApiService.getChapterFilesUrl(mangaId, id);
   }
 
+  /// 获取章节的总页数
+  int get totalPages {
+    if (imageList != null && imageList!.isNotEmpty) {
+      return imageList!.length;
+    } else if (imageIdMap != null && imageIdMap!.isNotEmpty) {
+      return imageIdMap!.length;
+    }
+    return 0;
+  }
+
   factory Chapter.fromJson(Map<String, dynamic> json) {
     return Chapter(
       id: DataParsers.parseString(json['id']),
