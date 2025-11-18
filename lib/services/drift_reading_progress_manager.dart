@@ -99,11 +99,14 @@ class DriftReadingProgressManager implements ReadingProgressManager {
         return ReadingProgress(
           mangaId: chapterProgress.mangaId,
           chapterId: chapterProgress.chapterId,
+          chapterTitle: chapterProgress.title,
+          chapterNumber: chapterProgress.number,
           currentPage: chapterProgress.currentPage,
           lastReadTime: chapterProgress.lastReadTime,
           totalPages: chapterProgress.totalPages,
           readingPercentage: chapterProgress.readingPercentage,
           isMarkedAsRead: chapterProgress.isMarkedAsRead,
+          readingDuration: chapterProgress.readingDuration,
         );
       }
     } else {
@@ -118,11 +121,14 @@ class DriftReadingProgressManager implements ReadingProgressManager {
         return ReadingProgress(
           mangaId: latestChapterProgress.mangaId,
           chapterId: latestChapterProgress.chapterId,
+          chapterTitle: latestChapterProgress.title,
+          chapterNumber: latestChapterProgress.number,
           currentPage: latestChapterProgress.currentPage,
           lastReadTime: latestChapterProgress.lastReadTime,
           totalPages: latestChapterProgress.totalPages,
           readingPercentage: latestChapterProgress.readingPercentage,
           isMarkedAsRead: latestChapterProgress.isMarkedAsRead,
+          readingDuration: latestChapterProgress.readingDuration,
         );
       }
     }
@@ -195,23 +201,44 @@ class DriftReadingProgressManager implements ReadingProgressManager {
   }
 
   @override
-  Future<List<ReadingProgress>> getRecentRead({int limit = 10}) async {
+  Future<List<ReadingProgress>> getRecentRead({int limit = 10, int offset = 0}) async {
     await init();
 
     final recentQuery = _database!.select(_database!.chapterProgresses)
       ..orderBy([(tbl) => OrderingTerm.desc(tbl.lastReadTime)])
-      ..limit(limit);
+      ..limit(limit, offset: offset);
     final recentChapters = await recentQuery.get();
 
     return recentChapters.map((chapter) => ReadingProgress(
       mangaId: chapter.mangaId,
       chapterId: chapter.chapterId,
+      chapterTitle: chapter.title,
+      chapterNumber: chapter.number,
       currentPage: chapter.currentPage,
       lastReadTime: chapter.lastReadTime,
       totalPages: chapter.totalPages,
       readingPercentage: chapter.readingPercentage,
       isMarkedAsRead: chapter.isMarkedAsRead,
+      readingDuration: chapter.readingDuration,
     )).toList();
+  }
+
+  /// 获取总的历史记录数量
+  Future<int> getTotalHistoryCount() async {
+    await init();
+    final count = await _database!.chapterProgresses.count().get();
+    return count.first;
+  }
+
+  /// 获取漫画进度信息
+  Future<MangaProgress?> getMangaProgress(String mangaId) async {
+    await init();
+
+    final mangaQuery = _database!.select(_database!.mangaProgresses)
+      ..where((tbl) => tbl.mangaId.equals(mangaId));
+    final mangaProgressList = await mangaQuery.get();
+
+    return mangaProgressList.isNotEmpty ? mangaProgressList.first : null;
   }
 
   @override
@@ -223,6 +250,40 @@ class DriftReadingProgressManager implements ReadingProgressManager {
     final chapters = await chapterQuery.get();
 
     return chapters.isNotEmpty;
+  }
+
+  /// 更新阅读时长
+  Future<void> updateReadingDuration({
+    required String chapterId,
+    required int durationSeconds,
+  }) async {
+    await init();
+
+    final chapterQuery = _database!.select(_database!.chapterProgresses)
+      ..where((tbl) => tbl.chapterId.equals(chapterId));
+    final chapterProgressList = await chapterQuery.get();
+
+    if (chapterProgressList.isNotEmpty) {
+      final chapterProgress = chapterProgressList.first;
+      await (_database!.update(_database!.chapterProgresses)
+            ..where((tbl) => tbl.id.equals(chapterProgress.id)))
+          .write(
+        ChapterProgressesCompanion(
+          readingDuration: Value(durationSeconds),
+        ),
+      );
+    }
+  }
+
+  /// 清除所有阅读历史记录
+  Future<void> clearAllHistory() async {
+    await init();
+
+    // 删除所有章节进度记录
+    await _database!.delete(_database!.chapterProgresses).go();
+
+    // 删除所有漫画进度记录
+    await _database!.delete(_database!.mangaProgresses).go();
   }
 
   /// 关闭数据库

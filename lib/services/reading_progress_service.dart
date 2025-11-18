@@ -5,20 +5,26 @@ import 'drift_reading_progress_manager.dart';
 class ReadingProgress {
   final String mangaId;
   final String chapterId;
+  final String chapterTitle;
+  final int chapterNumber;
   final int currentPage;
   final DateTime lastReadTime;
   final int totalPages;
   final double readingPercentage;
   final bool isMarkedAsRead;
+  final int readingDuration;
 
   ReadingProgress({
     required this.mangaId,
     required this.chapterId,
+    required this.chapterTitle,
+    required this.chapterNumber,
     required this.currentPage,
     required this.lastReadTime,
     required this.totalPages,
     required this.readingPercentage,
     this.isMarkedAsRead = false,
+    this.readingDuration = 0,
   });
 
   /// 计算阅读百分比
@@ -69,7 +75,7 @@ abstract class ReadingProgressManager {
   Future<Map<String, dynamic>> getReadingStats();
 
   /// 获取最近阅读的漫画列表
-  Future<List<ReadingProgress>> getRecentRead({int limit = 10});
+  Future<List<ReadingProgress>> getRecentRead({int limit = 10, int offset = 0});
 
   /// 检查漫画是否有阅读进度
   Future<bool> hasProgress(String mangaId);
@@ -139,12 +145,40 @@ class ReadingProgressService {
   }
 
   /// 获取最近阅读
-  Future<List<ReadingProgress>> getRecentRead({int limit = 10}) async {
-    return await manager.getRecentRead(limit: limit);
+  Future<List<ReadingProgress>> getRecentRead({int limit = 10, int offset = 0}) async {
+    return await manager.getRecentRead(limit: limit, offset: offset);
   }
 
   /// 检查是否有进度
   Future<bool> hasProgress(String mangaId) async {
     return await manager.hasProgress(mangaId);
+  }
+
+  /// 更新阅读时长
+  Future<void> updateReadingDuration({
+    required String chapterId,
+    required int durationSeconds,
+  }) async {
+    if (_manager is DriftReadingProgressManager) {
+      await (_manager as DriftReadingProgressManager).updateReadingDuration(
+        chapterId: chapterId,
+        durationSeconds: durationSeconds,
+      );
+    }
+  }
+
+  /// 清除所有阅读历史记录
+  Future<void> clearAllHistory() async {
+    if (_manager is DriftReadingProgressManager) {
+      await (_manager as DriftReadingProgressManager).clearAllHistory();
+    }
+  }
+
+  /// 获取总的历史记录数量
+  Future<int> getTotalHistoryCount() async {
+    if (_manager is DriftReadingProgressManager) {
+      return await (_manager as DriftReadingProgressManager).getTotalHistoryCount();
+    }
+    return 0;
   }
 }
