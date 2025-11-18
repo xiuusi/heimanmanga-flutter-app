@@ -53,7 +53,9 @@ lib/
 │   ├── memory_manager_simplified.dart # 内存管理器
 │   ├── smart_preload_manager.dart     # 预加载管理器
 │   ├── parsers.dart                   # 数据解析器
-│   └── reader_gestures.dart           # 阅读器手势控制
+│   ├── reader_gestures.dart           # 阅读器手势控制
+│   ├── page_animation_manager.dart    # 页面动画管理器
+│   └── haptic_feedback_manager.dart   # 触觉反馈管理器
 └── widgets/
     ├── main_navigation_page.dart      # 主导航页面
     ├── manga_list_page.dart           # 漫画列表页面（含轮播图）
@@ -61,6 +63,7 @@ lib/
     ├── search_page.dart               # 搜索页面
     ├── tags_page.dart                 # 标签页面
     ├── enhanced_reader_page.dart      # 增强阅读器页面
+    ├── history_page.dart              # 阅读历史页面
     ├── carousel_widget.dart           # 轮播图组件
     ├── page_transitions.dart          # 页面过渡动画
     ├── loading_animations_simplified.dart # 加载动画组件
@@ -76,16 +79,17 @@ lib/
 
 **主要依赖包**
 - `http: ^1.1.0` - HTTP客户端，用于API通信
-- `cached_network_image: ^3.3.0` - 网络图片缓存
-- `url_launcher: ^6.2.2` - URL启动器
+- `cached_network_image: ^3.4.1` - 网络图片缓存
+- `url_launcher: ^6.3.2` - URL启动器
 - `shared_preferences: ^2.2.2` - 本地存储
 - `drift: ^2.15.0` - 数据库ORM
 - `sqlite3_flutter_libs: ^0.5.3` - SQLite支持
 - `path_provider: ^2.1.1` - 路径提供器
+- `package_info_plus: ^5.0.1` - 包信息获取
 
 **开发依赖**
 - `flutter_lints: ^3.0.0` - 代码质量检查
-- `build_runner: ^2.4.0` - 代码生成
+- `build_runner: ^2.10.3` - 代码生成
 - `drift_dev: ^2.15.0` - Drift代码生成
 
 ## 🚀 快速开始
