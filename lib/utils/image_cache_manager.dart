@@ -396,10 +396,26 @@ class ImagePreloadManager {
 
   // 预加载单张图片
   static Future<void> preloadImage(BuildContext context, String imageUrl) async {
+    // 检查是否已经在预加载缓存中
     if (_preloadCache.containsKey(imageUrl)) {
       return _preloadCache[imageUrl]!;
     }
 
+    final future = _performPreload(context, imageUrl);
+    _preloadCache[imageUrl] = future;
+
+    return future;
+  }
+
+  // 智能预加载：检查缓存状态，避免重复加载
+  static Future<void> smartPreloadImage(BuildContext context, String imageUrl) async {
+    // 如果已经在预加载缓存中，直接返回
+    if (_preloadCache.containsKey(imageUrl)) {
+      return _preloadCache[imageUrl]!;
+    }
+
+    // 使用与首页相同的预加载策略
+    // 让 CachedNetworkImage 自动处理缓存复用
     final future = _performPreload(context, imageUrl);
     _preloadCache[imageUrl] = future;
 
