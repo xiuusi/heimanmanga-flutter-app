@@ -65,6 +65,9 @@ class ChapterProgresses extends Table {
   /// 最后阅读时间
   DateTimeColumn get lastReadTime => dateTime()();
 
+  /// 阅读时长（秒）
+  IntColumn get readingDuration => integer().withDefault(const Constant(0))();
+
   /// 唯一索引
   @override
   List<Set<Column>> get uniqueKeys => [{chapterId}];
@@ -76,7 +79,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        // 添加 readingDuration 字段到 ChapterProgresses 表
+        await migrator.addColumn(chapterProgresses, chapterProgresses.readingDuration);
+      }
+    },
+  );
 }
 
 LazyDatabase _openConnection() {

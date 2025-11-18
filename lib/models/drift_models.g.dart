@@ -218,6 +218,19 @@ class MangaProgress extends DataClass implements Insertable<MangaProgress> {
         coverPath: coverPath.present ? coverPath.value : this.coverPath,
         lastReadTime: lastReadTime ?? this.lastReadTime,
       );
+  MangaProgress copyWithCompanion(MangaProgressesCompanion data) {
+    return MangaProgress(
+      id: data.id.present ? data.id.value : this.id,
+      mangaId: data.mangaId.present ? data.mangaId.value : this.mangaId,
+      title: data.title.present ? data.title.value : this.title,
+      author: data.author.present ? data.author.value : this.author,
+      coverPath: data.coverPath.present ? data.coverPath.value : this.coverPath,
+      lastReadTime: data.lastReadTime.present
+          ? data.lastReadTime.value
+          : this.lastReadTime,
+    );
+  }
+
   @override
   String toString() {
     return (StringBuffer('MangaProgress(')
@@ -416,6 +429,14 @@ class $ChapterProgressesTable extends ChapterProgresses
   late final GeneratedColumn<DateTime> lastReadTime = GeneratedColumn<DateTime>(
       'last_read_time', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _readingDurationMeta =
+      const VerificationMeta('readingDuration');
+  @override
+  late final GeneratedColumn<int> readingDuration = GeneratedColumn<int>(
+      'reading_duration', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -427,7 +448,8 @@ class $ChapterProgressesTable extends ChapterProgresses
         totalPages,
         readingPercentage,
         isMarkedAsRead,
-        lastReadTime
+        lastReadTime,
+        readingDuration
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -504,6 +526,12 @@ class $ChapterProgressesTable extends ChapterProgresses
     } else if (isInserting) {
       context.missing(_lastReadTimeMeta);
     }
+    if (data.containsKey('reading_duration')) {
+      context.handle(
+          _readingDurationMeta,
+          readingDuration.isAcceptableOrUnknown(
+              data['reading_duration']!, _readingDurationMeta));
+    }
     return context;
   }
 
@@ -537,6 +565,8 @@ class $ChapterProgressesTable extends ChapterProgresses
           DriftSqlType.bool, data['${effectivePrefix}is_marked_as_read'])!,
       lastReadTime: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}last_read_time'])!,
+      readingDuration: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}reading_duration'])!,
     );
   }
 
@@ -576,6 +606,9 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
 
   /// 最后阅读时间
   final DateTime lastReadTime;
+
+  /// 阅读时长（秒）
+  final int readingDuration;
   const ChapterProgress(
       {required this.id,
       required this.chapterId,
@@ -586,7 +619,8 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
       required this.totalPages,
       required this.readingPercentage,
       required this.isMarkedAsRead,
-      required this.lastReadTime});
+      required this.lastReadTime,
+      required this.readingDuration});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -600,6 +634,7 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
     map['reading_percentage'] = Variable<double>(readingPercentage);
     map['is_marked_as_read'] = Variable<bool>(isMarkedAsRead);
     map['last_read_time'] = Variable<DateTime>(lastReadTime);
+    map['reading_duration'] = Variable<int>(readingDuration);
     return map;
   }
 
@@ -615,6 +650,7 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
       readingPercentage: Value(readingPercentage),
       isMarkedAsRead: Value(isMarkedAsRead),
       lastReadTime: Value(lastReadTime),
+      readingDuration: Value(readingDuration),
     );
   }
 
@@ -632,6 +668,7 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
       readingPercentage: serializer.fromJson<double>(json['readingPercentage']),
       isMarkedAsRead: serializer.fromJson<bool>(json['isMarkedAsRead']),
       lastReadTime: serializer.fromJson<DateTime>(json['lastReadTime']),
+      readingDuration: serializer.fromJson<int>(json['readingDuration']),
     );
   }
   @override
@@ -648,6 +685,7 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
       'readingPercentage': serializer.toJson<double>(readingPercentage),
       'isMarkedAsRead': serializer.toJson<bool>(isMarkedAsRead),
       'lastReadTime': serializer.toJson<DateTime>(lastReadTime),
+      'readingDuration': serializer.toJson<int>(readingDuration),
     };
   }
 
@@ -661,7 +699,8 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
           int? totalPages,
           double? readingPercentage,
           bool? isMarkedAsRead,
-          DateTime? lastReadTime}) =>
+          DateTime? lastReadTime,
+          int? readingDuration}) =>
       ChapterProgress(
         id: id ?? this.id,
         chapterId: chapterId ?? this.chapterId,
@@ -673,7 +712,34 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
         readingPercentage: readingPercentage ?? this.readingPercentage,
         isMarkedAsRead: isMarkedAsRead ?? this.isMarkedAsRead,
         lastReadTime: lastReadTime ?? this.lastReadTime,
+        readingDuration: readingDuration ?? this.readingDuration,
       );
+  ChapterProgress copyWithCompanion(ChapterProgressesCompanion data) {
+    return ChapterProgress(
+      id: data.id.present ? data.id.value : this.id,
+      chapterId: data.chapterId.present ? data.chapterId.value : this.chapterId,
+      mangaId: data.mangaId.present ? data.mangaId.value : this.mangaId,
+      title: data.title.present ? data.title.value : this.title,
+      number: data.number.present ? data.number.value : this.number,
+      currentPage:
+          data.currentPage.present ? data.currentPage.value : this.currentPage,
+      totalPages:
+          data.totalPages.present ? data.totalPages.value : this.totalPages,
+      readingPercentage: data.readingPercentage.present
+          ? data.readingPercentage.value
+          : this.readingPercentage,
+      isMarkedAsRead: data.isMarkedAsRead.present
+          ? data.isMarkedAsRead.value
+          : this.isMarkedAsRead,
+      lastReadTime: data.lastReadTime.present
+          ? data.lastReadTime.value
+          : this.lastReadTime,
+      readingDuration: data.readingDuration.present
+          ? data.readingDuration.value
+          : this.readingDuration,
+    );
+  }
+
   @override
   String toString() {
     return (StringBuffer('ChapterProgress(')
@@ -686,14 +752,25 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
           ..write('totalPages: $totalPages, ')
           ..write('readingPercentage: $readingPercentage, ')
           ..write('isMarkedAsRead: $isMarkedAsRead, ')
-          ..write('lastReadTime: $lastReadTime')
+          ..write('lastReadTime: $lastReadTime, ')
+          ..write('readingDuration: $readingDuration')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, chapterId, mangaId, title, number,
-      currentPage, totalPages, readingPercentage, isMarkedAsRead, lastReadTime);
+  int get hashCode => Object.hash(
+      id,
+      chapterId,
+      mangaId,
+      title,
+      number,
+      currentPage,
+      totalPages,
+      readingPercentage,
+      isMarkedAsRead,
+      lastReadTime,
+      readingDuration);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -707,7 +784,8 @@ class ChapterProgress extends DataClass implements Insertable<ChapterProgress> {
           other.totalPages == this.totalPages &&
           other.readingPercentage == this.readingPercentage &&
           other.isMarkedAsRead == this.isMarkedAsRead &&
-          other.lastReadTime == this.lastReadTime);
+          other.lastReadTime == this.lastReadTime &&
+          other.readingDuration == this.readingDuration);
 }
 
 class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
@@ -721,6 +799,7 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
   final Value<double> readingPercentage;
   final Value<bool> isMarkedAsRead;
   final Value<DateTime> lastReadTime;
+  final Value<int> readingDuration;
   const ChapterProgressesCompanion({
     this.id = const Value.absent(),
     this.chapterId = const Value.absent(),
@@ -732,6 +811,7 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
     this.readingPercentage = const Value.absent(),
     this.isMarkedAsRead = const Value.absent(),
     this.lastReadTime = const Value.absent(),
+    this.readingDuration = const Value.absent(),
   });
   ChapterProgressesCompanion.insert({
     this.id = const Value.absent(),
@@ -744,6 +824,7 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
     required double readingPercentage,
     this.isMarkedAsRead = const Value.absent(),
     required DateTime lastReadTime,
+    this.readingDuration = const Value.absent(),
   })  : chapterId = Value(chapterId),
         mangaId = Value(mangaId),
         title = Value(title),
@@ -763,6 +844,7 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
     Expression<double>? readingPercentage,
     Expression<bool>? isMarkedAsRead,
     Expression<DateTime>? lastReadTime,
+    Expression<int>? readingDuration,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -775,6 +857,7 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
       if (readingPercentage != null) 'reading_percentage': readingPercentage,
       if (isMarkedAsRead != null) 'is_marked_as_read': isMarkedAsRead,
       if (lastReadTime != null) 'last_read_time': lastReadTime,
+      if (readingDuration != null) 'reading_duration': readingDuration,
     });
   }
 
@@ -788,7 +871,8 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
       Value<int>? totalPages,
       Value<double>? readingPercentage,
       Value<bool>? isMarkedAsRead,
-      Value<DateTime>? lastReadTime}) {
+      Value<DateTime>? lastReadTime,
+      Value<int>? readingDuration}) {
     return ChapterProgressesCompanion(
       id: id ?? this.id,
       chapterId: chapterId ?? this.chapterId,
@@ -800,6 +884,7 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
       readingPercentage: readingPercentage ?? this.readingPercentage,
       isMarkedAsRead: isMarkedAsRead ?? this.isMarkedAsRead,
       lastReadTime: lastReadTime ?? this.lastReadTime,
+      readingDuration: readingDuration ?? this.readingDuration,
     );
   }
 
@@ -836,6 +921,9 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
     if (lastReadTime.present) {
       map['last_read_time'] = Variable<DateTime>(lastReadTime.value);
     }
+    if (readingDuration.present) {
+      map['reading_duration'] = Variable<int>(readingDuration.value);
+    }
     return map;
   }
 
@@ -851,7 +939,8 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
           ..write('totalPages: $totalPages, ')
           ..write('readingPercentage: $readingPercentage, ')
           ..write('isMarkedAsRead: $isMarkedAsRead, ')
-          ..write('lastReadTime: $lastReadTime')
+          ..write('lastReadTime: $lastReadTime, ')
+          ..write('readingDuration: $readingDuration')
           ..write(')'))
         .toString();
   }
@@ -859,6 +948,7 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
 
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
+  $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $MangaProgressesTable mangaProgresses =
       $MangaProgressesTable(this);
   late final $ChapterProgressesTable chapterProgresses =
@@ -869,4 +959,464 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
       [mangaProgresses, chapterProgresses];
+}
+
+typedef $$MangaProgressesTableCreateCompanionBuilder = MangaProgressesCompanion
+    Function({
+  Value<int> id,
+  required String mangaId,
+  required String title,
+  required String author,
+  Value<String?> coverPath,
+  required DateTime lastReadTime,
+});
+typedef $$MangaProgressesTableUpdateCompanionBuilder = MangaProgressesCompanion
+    Function({
+  Value<int> id,
+  Value<String> mangaId,
+  Value<String> title,
+  Value<String> author,
+  Value<String?> coverPath,
+  Value<DateTime> lastReadTime,
+});
+
+class $$MangaProgressesTableFilterComposer
+    extends Composer<_$AppDatabase, $MangaProgressesTable> {
+  $$MangaProgressesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mangaId => $composableBuilder(
+      column: $table.mangaId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get author => $composableBuilder(
+      column: $table.author, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get coverPath => $composableBuilder(
+      column: $table.coverPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastReadTime => $composableBuilder(
+      column: $table.lastReadTime, builder: (column) => ColumnFilters(column));
+}
+
+class $$MangaProgressesTableOrderingComposer
+    extends Composer<_$AppDatabase, $MangaProgressesTable> {
+  $$MangaProgressesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mangaId => $composableBuilder(
+      column: $table.mangaId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get author => $composableBuilder(
+      column: $table.author, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get coverPath => $composableBuilder(
+      column: $table.coverPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastReadTime => $composableBuilder(
+      column: $table.lastReadTime,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$MangaProgressesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MangaProgressesTable> {
+  $$MangaProgressesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get mangaId =>
+      $composableBuilder(column: $table.mangaId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get author =>
+      $composableBuilder(column: $table.author, builder: (column) => column);
+
+  GeneratedColumn<String> get coverPath =>
+      $composableBuilder(column: $table.coverPath, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastReadTime => $composableBuilder(
+      column: $table.lastReadTime, builder: (column) => column);
+}
+
+class $$MangaProgressesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $MangaProgressesTable,
+    MangaProgress,
+    $$MangaProgressesTableFilterComposer,
+    $$MangaProgressesTableOrderingComposer,
+    $$MangaProgressesTableAnnotationComposer,
+    $$MangaProgressesTableCreateCompanionBuilder,
+    $$MangaProgressesTableUpdateCompanionBuilder,
+    (
+      MangaProgress,
+      BaseReferences<_$AppDatabase, $MangaProgressesTable, MangaProgress>
+    ),
+    MangaProgress,
+    PrefetchHooks Function()> {
+  $$MangaProgressesTableTableManager(
+      _$AppDatabase db, $MangaProgressesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MangaProgressesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MangaProgressesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MangaProgressesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> mangaId = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String> author = const Value.absent(),
+            Value<String?> coverPath = const Value.absent(),
+            Value<DateTime> lastReadTime = const Value.absent(),
+          }) =>
+              MangaProgressesCompanion(
+            id: id,
+            mangaId: mangaId,
+            title: title,
+            author: author,
+            coverPath: coverPath,
+            lastReadTime: lastReadTime,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String mangaId,
+            required String title,
+            required String author,
+            Value<String?> coverPath = const Value.absent(),
+            required DateTime lastReadTime,
+          }) =>
+              MangaProgressesCompanion.insert(
+            id: id,
+            mangaId: mangaId,
+            title: title,
+            author: author,
+            coverPath: coverPath,
+            lastReadTime: lastReadTime,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$MangaProgressesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $MangaProgressesTable,
+    MangaProgress,
+    $$MangaProgressesTableFilterComposer,
+    $$MangaProgressesTableOrderingComposer,
+    $$MangaProgressesTableAnnotationComposer,
+    $$MangaProgressesTableCreateCompanionBuilder,
+    $$MangaProgressesTableUpdateCompanionBuilder,
+    (
+      MangaProgress,
+      BaseReferences<_$AppDatabase, $MangaProgressesTable, MangaProgress>
+    ),
+    MangaProgress,
+    PrefetchHooks Function()>;
+typedef $$ChapterProgressesTableCreateCompanionBuilder
+    = ChapterProgressesCompanion Function({
+  Value<int> id,
+  required String chapterId,
+  required String mangaId,
+  required String title,
+  required int number,
+  required int currentPage,
+  required int totalPages,
+  required double readingPercentage,
+  Value<bool> isMarkedAsRead,
+  required DateTime lastReadTime,
+  Value<int> readingDuration,
+});
+typedef $$ChapterProgressesTableUpdateCompanionBuilder
+    = ChapterProgressesCompanion Function({
+  Value<int> id,
+  Value<String> chapterId,
+  Value<String> mangaId,
+  Value<String> title,
+  Value<int> number,
+  Value<int> currentPage,
+  Value<int> totalPages,
+  Value<double> readingPercentage,
+  Value<bool> isMarkedAsRead,
+  Value<DateTime> lastReadTime,
+  Value<int> readingDuration,
+});
+
+class $$ChapterProgressesTableFilterComposer
+    extends Composer<_$AppDatabase, $ChapterProgressesTable> {
+  $$ChapterProgressesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get chapterId => $composableBuilder(
+      column: $table.chapterId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mangaId => $composableBuilder(
+      column: $table.mangaId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get number => $composableBuilder(
+      column: $table.number, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get currentPage => $composableBuilder(
+      column: $table.currentPage, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get totalPages => $composableBuilder(
+      column: $table.totalPages, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get readingPercentage => $composableBuilder(
+      column: $table.readingPercentage,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isMarkedAsRead => $composableBuilder(
+      column: $table.isMarkedAsRead,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastReadTime => $composableBuilder(
+      column: $table.lastReadTime, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get readingDuration => $composableBuilder(
+      column: $table.readingDuration,
+      builder: (column) => ColumnFilters(column));
+}
+
+class $$ChapterProgressesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChapterProgressesTable> {
+  $$ChapterProgressesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get chapterId => $composableBuilder(
+      column: $table.chapterId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mangaId => $composableBuilder(
+      column: $table.mangaId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get number => $composableBuilder(
+      column: $table.number, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get currentPage => $composableBuilder(
+      column: $table.currentPage, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get totalPages => $composableBuilder(
+      column: $table.totalPages, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get readingPercentage => $composableBuilder(
+      column: $table.readingPercentage,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isMarkedAsRead => $composableBuilder(
+      column: $table.isMarkedAsRead,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastReadTime => $composableBuilder(
+      column: $table.lastReadTime,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get readingDuration => $composableBuilder(
+      column: $table.readingDuration,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$ChapterProgressesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChapterProgressesTable> {
+  $$ChapterProgressesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get chapterId =>
+      $composableBuilder(column: $table.chapterId, builder: (column) => column);
+
+  GeneratedColumn<String> get mangaId =>
+      $composableBuilder(column: $table.mangaId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<int> get number =>
+      $composableBuilder(column: $table.number, builder: (column) => column);
+
+  GeneratedColumn<int> get currentPage => $composableBuilder(
+      column: $table.currentPage, builder: (column) => column);
+
+  GeneratedColumn<int> get totalPages => $composableBuilder(
+      column: $table.totalPages, builder: (column) => column);
+
+  GeneratedColumn<double> get readingPercentage => $composableBuilder(
+      column: $table.readingPercentage, builder: (column) => column);
+
+  GeneratedColumn<bool> get isMarkedAsRead => $composableBuilder(
+      column: $table.isMarkedAsRead, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastReadTime => $composableBuilder(
+      column: $table.lastReadTime, builder: (column) => column);
+
+  GeneratedColumn<int> get readingDuration => $composableBuilder(
+      column: $table.readingDuration, builder: (column) => column);
+}
+
+class $$ChapterProgressesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $ChapterProgressesTable,
+    ChapterProgress,
+    $$ChapterProgressesTableFilterComposer,
+    $$ChapterProgressesTableOrderingComposer,
+    $$ChapterProgressesTableAnnotationComposer,
+    $$ChapterProgressesTableCreateCompanionBuilder,
+    $$ChapterProgressesTableUpdateCompanionBuilder,
+    (
+      ChapterProgress,
+      BaseReferences<_$AppDatabase, $ChapterProgressesTable, ChapterProgress>
+    ),
+    ChapterProgress,
+    PrefetchHooks Function()> {
+  $$ChapterProgressesTableTableManager(
+      _$AppDatabase db, $ChapterProgressesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChapterProgressesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChapterProgressesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChapterProgressesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> chapterId = const Value.absent(),
+            Value<String> mangaId = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<int> number = const Value.absent(),
+            Value<int> currentPage = const Value.absent(),
+            Value<int> totalPages = const Value.absent(),
+            Value<double> readingPercentage = const Value.absent(),
+            Value<bool> isMarkedAsRead = const Value.absent(),
+            Value<DateTime> lastReadTime = const Value.absent(),
+            Value<int> readingDuration = const Value.absent(),
+          }) =>
+              ChapterProgressesCompanion(
+            id: id,
+            chapterId: chapterId,
+            mangaId: mangaId,
+            title: title,
+            number: number,
+            currentPage: currentPage,
+            totalPages: totalPages,
+            readingPercentage: readingPercentage,
+            isMarkedAsRead: isMarkedAsRead,
+            lastReadTime: lastReadTime,
+            readingDuration: readingDuration,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String chapterId,
+            required String mangaId,
+            required String title,
+            required int number,
+            required int currentPage,
+            required int totalPages,
+            required double readingPercentage,
+            Value<bool> isMarkedAsRead = const Value.absent(),
+            required DateTime lastReadTime,
+            Value<int> readingDuration = const Value.absent(),
+          }) =>
+              ChapterProgressesCompanion.insert(
+            id: id,
+            chapterId: chapterId,
+            mangaId: mangaId,
+            title: title,
+            number: number,
+            currentPage: currentPage,
+            totalPages: totalPages,
+            readingPercentage: readingPercentage,
+            isMarkedAsRead: isMarkedAsRead,
+            lastReadTime: lastReadTime,
+            readingDuration: readingDuration,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$ChapterProgressesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $ChapterProgressesTable,
+    ChapterProgress,
+    $$ChapterProgressesTableFilterComposer,
+    $$ChapterProgressesTableOrderingComposer,
+    $$ChapterProgressesTableAnnotationComposer,
+    $$ChapterProgressesTableCreateCompanionBuilder,
+    $$ChapterProgressesTableUpdateCompanionBuilder,
+    (
+      ChapterProgress,
+      BaseReferences<_$AppDatabase, $ChapterProgressesTable, ChapterProgress>
+    ),
+    ChapterProgress,
+    PrefetchHooks Function()>;
+
+class $AppDatabaseManager {
+  final _$AppDatabase _db;
+  $AppDatabaseManager(this._db);
+  $$MangaProgressesTableTableManager get mangaProgresses =>
+      $$MangaProgressesTableTableManager(_db, _db.mangaProgresses);
+  $$ChapterProgressesTableTableManager get chapterProgresses =>
+      $$ChapterProgressesTableTableManager(_db, _db.chapterProgresses);
 }
