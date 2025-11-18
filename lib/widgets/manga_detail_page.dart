@@ -41,7 +41,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
     final Map<String, bool> statusMap = {};
 
     for (final chapter in manga.chapters) {
-      final progress = await _progressService.getProgress(widget.manga.id, chapterId: chapter.id);
+      final progress = await _progressService.getProgress(manga.id, chapterId: chapter.id);
       final isChapterRead = progress?.isChapterRead() ?? false;
       statusMap[chapter.id] = isChapterRead;
     }
@@ -69,7 +69,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
   Future<void> _calculateReadButtonState(Manga manga) async {
     try {
       // 获取阅读进度
-      final progress = await _progressService.getProgress(widget.manga.id);
+      final progress = await _progressService.getProgress(manga.id);
 
       // 默认从第一章第一页开始
       String targetChapterId = manga.chapters.isNotEmpty ? manga.chapters[0].id : "";
@@ -108,32 +108,75 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
   }
 
   /// 处理阅读按钮点击（类似web端readManga函数）
-  void _handleReadButtonTap() {
+  Future<void> _handleReadButtonTap() async {
     if (_targetChapterId.isEmpty) return;
 
-    final targetChapters = widget.manga.chapters.where((chapter) => chapter.id == _targetChapterId).toList();
-    final targetChapter = targetChapters.isNotEmpty ? targetChapters.first : widget.manga.chapters[0];
+    try {
+      // 等待获取完整的漫画数据
+      final fullManga = await _mangaDetailFuture;
 
-    // 记录用户选择了这个章节，从指定页码开始阅读
-    _progressService.saveProgress(
-      manga: widget.manga,
-      chapter: targetChapter,
-      currentPage: _targetPageNum - 1, // 转换为0-based
-      totalPages: targetChapter.totalPages, // 使用实际的章节页数
-    );
+      final targetChapters = fullManga.chapters.where((chapter) => chapter.id == _targetChapterId).toList();
+      final targetChapter = targetChapters.isNotEmpty ? targetChapters.first : fullManga.chapters[0];
 
-    // 导航到阅读页面
-    Navigator.push(
-      context,
-      PageTransitions.customPageRoute(
-        child: EnhancedReaderPage(
-          manga: widget.manga,
-          chapter: targetChapter,
-          chapters: widget.manga.chapters,
+      // 记录用户选择了这个章节，从指定页码开始阅读
+      await _progressService.saveProgress(
+        manga: fullManga,
+        chapter: targetChapter,
+        currentPage: _targetPageNum - 1, // 转换为0-based
+        totalPages: targetChapter.totalPages, // 使用实际的章节页数
+      );
+
+      // 导航到阅读页面并等待返回
+      await Navigator.push(
+        context,
+        PageTransitions.customPageRoute(
+          child: EnhancedReaderPage(
+            manga: fullManga,
+            chapter: targetChapter,
+            chapters: fullManga.chapters,
+          ),
+          transitionBuilder: PageTransitions.fadeTransition,
         ),
-        transitionBuilder: PageTransitions.fadeTransition,
-      ),
-    );
+      );
+
+      // 从阅读器返回后刷新阅读状态和按钮状态
+      if (mounted) {
+        _loadChapterReadStatus(fullManga);
+        _calculateReadButtonState(fullManga);
+      }
+    } catch (error) {
+      // 如果获取完整数据失败，使用初始数据作为备选
+      print('获取完整漫画数据失败，使用初始数据: $error');
+      final targetChapters = widget.manga.chapters.where((chapter) => chapter.id == _targetChapterId).toList();
+      final targetChapter = targetChapters.isNotEmpty ? targetChapters.first : widget.manga.chapters[0];
+
+      // 记录用户选择了这个章节，从指定页码开始阅读
+      await _progressService.saveProgress(
+        manga: widget.manga,
+        chapter: targetChapter,
+        currentPage: _targetPageNum - 1, // 转换为0-based
+        totalPages: targetChapter.totalPages, // 使用实际的章节页数
+      );
+
+      // 导航到阅读页面并等待返回
+      await Navigator.push(
+        context,
+        PageTransitions.customPageRoute(
+          child: EnhancedReaderPage(
+            manga: widget.manga,
+            chapter: targetChapter,
+            chapters: widget.manga.chapters,
+          ),
+          transitionBuilder: PageTransitions.fadeTransition,
+        ),
+      );
+
+      // 从阅读器返回后刷新阅读状态和按钮状态
+      if (mounted) {
+        _loadChapterReadStatus(widget.manga);
+        _calculateReadButtonState(widget.manga);
+      }
+    }
   }
 
   Future<Manga> _loadMangaDetail() async {
@@ -301,7 +344,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                   const SizedBox(height: 16),
                   // 开始阅读/继续阅读按钮
                   ElevatedButton(
-                    onPressed: _targetChapterId.isNotEmpty ? _handleReadButtonTap : null,
+                    onPressed: _targetChapterId.isNotEmpty ? () => _handleReadButtonTap() : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFF6B6B),
                       foregroundColor: Colors.white,
@@ -583,9 +626,10 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                           ),
                         );
 
-                        // 从阅读器返回后刷新阅读状态
+                        // 从阅读器返回后刷新阅读状态和按钮状态
                         if (mounted) {
                           _loadChapterReadStatus(manga);
+                          _calculateReadButtonState(manga);
                         }
                       },
                     ),

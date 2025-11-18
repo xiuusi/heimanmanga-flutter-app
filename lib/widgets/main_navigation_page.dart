@@ -3,6 +3,7 @@ import 'manga_list_page.dart';
 import 'search_page.dart';
 import 'tags_page.dart';
 import 'settings_page.dart';
+import 'history_page.dart';
 import '../utils/theme_manager.dart';
 
 class MainNavigationPage extends StatefulWidget {
@@ -15,22 +16,30 @@ class MainNavigationPage extends StatefulWidget {
 class _MainNavigationPageState extends State<MainNavigationPage> {
   int _currentIndex = 0;
   final ThemeManager _themeManager = ThemeManager();
+  late final PageController _pageController;
 
-  final List<Widget> _pages = [
-    const MangaListPage(),
-    const SearchPage(),
-    const TagsPage(),
-  ];
+  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _themeManager.addListener(_onThemeChanged);
+
+    // 初始化页面列表
+    _pages = [
+      const MangaListPage(),
+      const SearchPage(),
+      const TagsPage(),
+      const HistoryPage(),
+    ];
+
+    _pageController = PageController();
   }
 
   @override
   void dispose() {
     _themeManager.removeListener(_onThemeChanged);
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -109,9 +118,15 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(), // 禁用页面滑动
         children: _pages,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -148,6 +163,12 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
                   label: '标签',
                   index: 2,
                 ),
+                _buildNavItem(
+                  icon: Icons.history_outlined,
+                  activeIcon: Icons.history,
+                  label: '历史',
+                  index: 3,
+                ),
               ],
             ),
           ),
@@ -168,9 +189,11 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
 
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
