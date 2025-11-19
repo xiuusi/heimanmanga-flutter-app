@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/manga.dart';
 import '../services/api_service.dart';
 import '../services/reading_progress_service.dart';
@@ -29,6 +28,9 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
   String _readButtonText = "开始阅读";
   String _targetChapterId = "";
   int _targetPageNum = 1;
+
+  // 是否显示悬浮按钮
+  bool _showFloatingButton = false;
 
   @override
   void initState() {
@@ -82,7 +84,6 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
 
         if (progressChapters.isNotEmpty) {
           // 如果有匹配的章节，使用第一个匹配的章节
-          final progressChapter = progressChapters.first;
           buttonText = "继续阅读";
           targetChapterId = progress.chapterId;
           targetPageNum = progress.currentPage + 1; // currentPage是0-based，转换为1-based
@@ -127,7 +128,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
       );
 
       // 导航到阅读页面并等待返回
-      await Navigator.push(
+      final result = await Navigator.push(
         context,
         PageTransitions.customPageRoute(
           child: EnhancedReaderPage(
@@ -159,7 +160,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
       );
 
       // 导航到阅读页面并等待返回
-      await Navigator.push(
+      final result2 = await Navigator.push(
         context,
         PageTransitions.customPageRoute(
           child: EnhancedReaderPage(
@@ -199,9 +200,13 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
         ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: FutureBuilder<Manga>(
-        future: _mangaDetailFuture,
-        builder: (context, snapshot) {
+      body: Stack(
+        fit: StackFit.expand, // 确保Stack填满整个屏幕
+        children: [
+          // 主要内容区域
+          FutureBuilder<Manga>(
+            future: _mangaDetailFuture,
+            builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(
               child: LoadingAnimations.pulseLoader(
@@ -249,6 +254,17 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
             });
           }
 
+          // 显示悬浮按钮 - 在数据加载完成后立即显示
+          if (mounted && !_showFloatingButton) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _showFloatingButton = true;
+                });
+              }
+            });
+          }
+
           return SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,6 +276,52 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
             ),
           );
         },
+          ),
+          // 固定在屏幕右下角的按钮 - 只在内容加载完成后显示
+          if (_showFloatingButton)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 16, // 考虑底部安全区域
+              right: 16,
+              child: Container(
+                width: 120, // 增加宽度以容纳更长的文本
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _targetChapterId.isNotEmpty ? () => _handleReadButtonTap() : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6B6B),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24.0),
+                    ),
+                    elevation: 0, // 使用外部阴影
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      _readButtonText,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -341,26 +403,6 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                   // 标签
                   if (manga.tags.isNotEmpty)
                     _buildTagsSection(manga.tags),
-                  const SizedBox(height: 16),
-                  // 开始阅读/继续阅读按钮
-                  ElevatedButton(
-                    onPressed: _targetChapterId.isNotEmpty ? () => _handleReadButtonTap() : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF6B6B),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                    ),
-                    child: Text(
-                      _readButtonText,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
