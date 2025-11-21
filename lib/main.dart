@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'widgets/main_navigation_page.dart';
+import 'widgets/tablet_main_page.dart';
 import 'widgets/page_transitions.dart';
 import 'utils/image_cache_manager.dart';
 import 'utils/memory_manager_simplified.dart';
@@ -84,8 +84,8 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
       darkTheme: _buildDarkTheme(),
       // 根据当前设置决定使用亮色还是暗色主题
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      // 应用的主页面，这里是主导航页面
-      home: const MainNavigationPage(),
+      // 应用的主页面，使用响应式布局
+      home: const ResponsiveMainPage(),
       // 隐藏调试横幅（在发布版中）
       debugShowCheckedModeBanner: false,
     );
