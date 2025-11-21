@@ -62,6 +62,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   // 配置
   late ReadingGestureConfig _config;
   ReadingDirection _readingDirection = ReadingDirection.rightToLeft;
+  bool _dualPageMode = false;
 
   // 动画控制器
   late AnimationController _settingsAnimationController;
@@ -73,6 +74,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   static const int _chapterEndPreloadThreshold = 3; // 章节末尾预加载阈值
   bool _isNearChapterEnd = false;
   Timer? _nextChapterPreloadTimer;
+
+  // 图片尺寸缓存
+  Map<int, Size> _imageSizes = <int, Size>{};
 
   // 阅读进度
   double _readingProgress = 0.0;
@@ -104,6 +108,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     // 初始化配置
     _config = widget.initialConfig ?? ReadingGestureConfig();
     _readingDirection = _config.readingDirection;
+    _dualPageMode = _config.dualPageMode;
     _volumeButtonNavigationEnabled = _config.volumeButtonNavigation;
 
     // 初始化焦点节点
@@ -189,6 +194,14 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         // 预加载附近页面
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _preloadNearbyPages();
+        });
+
+        // 异步加载图片尺寸信息
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          // 预加载所有图片的尺寸（异步进行，不影响初始加载速度）
+          for (int i = 0; i < imageUrls.length; i++) {
+            await _getImageSize(imageUrls[i], i);
+          }
         });
       } else {
         setState(() {
@@ -369,6 +382,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   void _preloadNearbyPages() {
     if (_imageUrls.isEmpty) return;
 
+    // 根据当前页面索引预加载图片
     int start = (_currentPage - _preloadRange).clamp(0, _imageUrls.length - 1);
     int end = (_currentPage + _preloadRange).clamp(0, _imageUrls.length - 1);
 
@@ -412,7 +426,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   void _checkNextChapterPreload() {
     if (_imageUrls.isEmpty) return;
 
-    final isNearEnd = _currentPage >= _imageUrls.length - _chapterEndPreloadThreshold;
+    // 根据当前页面索引判断是否接近章节末尾
+    // 在智能双页模式下，我们需要考虑页面总数
+    final currentPageIndex = _dualPageMode ? _getPageIndexOfImage(_currentPage) : _currentPage;
+    final totalPageCount = _dualPageMode ? _getPageCount() : _imageUrls.length;
+
+    final isNearEnd = currentPageIndex >= totalPageCount - _chapterEndPreloadThreshold;
 
     // 如果接近章节末尾且还没有预加载下一章节
     if (isNearEnd && !_isNearChapterEnd) {
@@ -479,6 +498,151 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   void _cancelNextChapterPreload() {
     _nextChapterPreloadTimer?.cancel();
     _nextChapterPreloadTimer = null;
+  }
+
+  /// 获取图片尺寸
+  Future<Size> _getImageSize(String imageUrl, int index) async {
+    if (_imageSizes.containsKey(index)) {
+      return _imageSizes[index]!;
+    }
+
+    try {
+      final Completer<Size> completer = Completer<Size>();
+      final Image image = Image.network(imageUrl);
+
+      image.image.resolve(const ImageConfiguration()).addListener(
+        ImageStreamListener(
+          (ImageInfo info, bool _) {
+            final Size size = Size(
+              info.image.width.toDouble(),
+              info.image.height.toDouble(),
+            );
+            _imageSizes[index] = size;
+            completer.complete(size);
+          },
+        ),
+      );
+
+      return await completer.future;
+    } catch (e) {
+      // 如果无法获取尺寸，返回默认值
+      final Size defaultSize = Size(1000, 1500); // 假设默认纵向图片
+      _imageSizes[index] = defaultSize;
+      return defaultSize;
+    }
+  }
+
+  /// 检查图片是否为横向（宽大于高）
+  bool _isLandscapeImage(int index) {
+    if (_imageSizes.containsKey(index)) {
+      final Size size = _imageSizes[index]!;
+      return size.width > size.height;
+    }
+    return false; // 默认认为是纵向图片
+  }
+
+  /// 计算页面索引（考虑宽高比）
+  int _getPageCount() {
+    if (!_dualPageMode) {
+      return _imageUrls.length;
+    }
+
+    // 如果启用双页模式，我们需要根据图片宽高比来决定
+    int pageCount = 0;
+    int i = 0;
+    while (i < _imageUrls.length) {
+      // 检查当前图片是否为横向
+      if (_isLandscapeImage(i)) {
+        // 横向图片单独显示一页
+        pageCount++;
+        i++;
+      } else {
+        // 纵向图片尝试双页显示
+        pageCount++;
+        i += 2; // 跳过下一张图片，因为它和当前图片组成双页
+      }
+    }
+    return pageCount;
+  }
+
+  /// 根据页面索引获取图片索引（考虑宽高比）
+  List<int> _getImageIndicesForPage(int pageIndex) {
+    if (!_dualPageMode) {
+      return [pageIndex];
+    }
+
+    // 遍历直到找到指定页面索引对应的图片
+    int currentPageIndex = 0;
+    int imageIndex = 0;
+
+    while (imageIndex < _imageUrls.length && currentPageIndex < pageIndex) {
+      if (_isLandscapeImage(imageIndex)) {
+        // 横向图片单独显示一页
+        imageIndex++;
+      } else {
+        // 纵向图片双页显示
+        imageIndex += 2;
+      }
+      currentPageIndex++;
+    }
+
+    if (imageIndex >= _imageUrls.length) {
+      // 返回最后一张或两张图片的索引
+      if (_imageUrls.length > 0) {
+        if (_isLandscapeImage(_imageUrls.length - 1)) {
+          return [_imageUrls.length - 1];
+        } else {
+          if (_imageUrls.length >= 2 && !_isLandscapeImage(_imageUrls.length - 2)) {
+            return [_imageUrls.length - 2, _imageUrls.length - 1];
+          } else {
+            return [_imageUrls.length - 1];
+          }
+        }
+      }
+      return [];
+    }
+
+    // 返回当前页面应该显示的图片索引
+    if (_isLandscapeImage(imageIndex)) {
+      return [imageIndex];
+    } else {
+      // 检查是否还有下一张图片用于双页显示
+      if (imageIndex + 1 < _imageUrls.length && !_isLandscapeImage(imageIndex + 1)) {
+        return [imageIndex, imageIndex + 1];
+      } else {
+        return [imageIndex];
+      }
+    }
+  }
+
+  /// 根据图片索引计算页面索引（考虑宽高比）
+  int _getPageIndexOfImage(int imageIndex) {
+    if (!_dualPageMode) {
+      return imageIndex;
+    }
+
+    int pageIndex = 0;
+    int i = 0;
+
+    while (i < imageIndex) {
+      if (_isLandscapeImage(i)) {
+        // 横向图片单独一页
+        pageIndex++;
+        i++;
+      } else {
+        // 纵向图片双页显示
+        pageIndex++;
+        i += 2;
+      }
+    }
+
+    if (i == imageIndex) {
+      return pageIndex;
+    } else {
+      // 如果i > imageIndex，说明imageIndex是双页中的第二张
+      // 在这种情况下，它和前一张图片在同一页面
+      return pageIndex;
+    }
   }
 
   void _startHideTimer() {
@@ -578,48 +742,108 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
 
   void _previousPage() {
-    if (_currentPage > 0) {
-      HapticFeedbackManager.selectionClick();
-      final config = PageAnimationManager().getTapAnimationConfig();
-      _pageController.previousPage(
-        duration: config.duration,
-        curve: config.curve,
-      );
-    }
-  }
+    if (_dualPageMode) {
+      // 智能双页模式
+      int currentPageIndex = _getPageIndexOfImage(_currentPage);
 
-  void _nextPage() {
-    if (_currentPage < _imageUrls.length - 1) {
-      HapticFeedbackManager.selectionClick();
-      final config = PageAnimationManager().getTapAnimationConfig();
-      _pageController.nextPage(
-        duration: config.duration,
-        curve: config.curve,
-      );
-    } else {
-      // 到达章节末尾，自动标记为已阅读并显示过渡画面
-      _markCurrentChapterAsRead();
-      _showChapterTransition();
-    }
-  }
-
-  /// 滑动翻页
-  void _swipePage(bool isForward, Offset velocity) {
-    if (isForward) {
-      if (_currentPage < _imageUrls.length - 1) {
-        final config = PageAnimationManager().getSwipeAnimationConfig(velocity, true);
-        _pageController.nextPage(
+      if (currentPageIndex > 0) {
+        HapticFeedbackManager.selectionClick();
+        final config = PageAnimationManager().getTapAnimationConfig();
+        _pageController.previousPage(
           duration: config.duration,
           curve: config.curve,
         );
       }
     } else {
+      // 单页模式
       if (_currentPage > 0) {
-        final config = PageAnimationManager().getSwipeAnimationConfig(velocity, false);
+        HapticFeedbackManager.selectionClick();
+        final config = PageAnimationManager().getTapAnimationConfig();
         _pageController.previousPage(
           duration: config.duration,
           curve: config.curve,
         );
+      }
+    }
+  }
+
+  void _nextPage() {
+    if (_dualPageMode) {
+      // 智能双页模式
+      int currentPageIndex = _getPageIndexOfImage(_currentPage);
+      int pageCount = _getPageCount();
+
+      if (currentPageIndex < pageCount - 1) {
+        HapticFeedbackManager.selectionClick();
+        final config = PageAnimationManager().getTapAnimationConfig();
+        _pageController.nextPage(
+          duration: config.duration,
+          curve: config.curve,
+        );
+      } else {
+        // 到达章节末尾，自动标记为已阅读并显示过渡画面
+        _markCurrentChapterAsRead();
+        _showChapterTransition();
+      }
+    } else {
+      // 单页模式
+      if (_currentPage < _imageUrls.length - 1) {
+        HapticFeedbackManager.selectionClick();
+        final config = PageAnimationManager().getTapAnimationConfig();
+        _pageController.nextPage(
+          duration: config.duration,
+          curve: config.curve,
+        );
+      } else {
+        // 到达章节末尾，自动标记为已阅读并显示过渡画面
+        _markCurrentChapterAsRead();
+        _showChapterTransition();
+      }
+    }
+  }
+
+  /// 滑动翻页
+  void _swipePage(bool isForward, Offset velocity) {
+    if (_dualPageMode) {
+      // 智能双页模式
+      int currentPageIndex = _getPageIndexOfImage(_currentPage);
+      int pageCount = _getPageCount();
+
+      if (isForward) {
+        if (currentPageIndex < pageCount - 1) {
+          final config = PageAnimationManager().getSwipeAnimationConfig(velocity, true);
+          _pageController.nextPage(
+            duration: config.duration,
+            curve: config.curve,
+          );
+        }
+      } else {
+        if (currentPageIndex > 0) {
+          final config = PageAnimationManager().getSwipeAnimationConfig(velocity, false);
+          _pageController.previousPage(
+            duration: config.duration,
+            curve: config.curve,
+          );
+        }
+      }
+    } else {
+      // 单页模式
+      if (isForward) {
+        if (_currentPage < _imageUrls.length - 1) {
+          final config = PageAnimationManager().getSwipeAnimationConfig(velocity, true);
+          _pageController.nextPage(
+            duration: config.duration,
+            curve: config.curve,
+          );
+        }
+      } else {
+        if (_currentPage > 0) {
+          final config = PageAnimationManager().getSwipeAnimationConfig(velocity, false);
+          _pageController.previousPage(
+            duration: config.duration,
+            curve: config.curve,
+          );
+        }
       }
     }
   }
@@ -1012,40 +1236,87 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   Widget _buildHorizontalReader() {
-    return PageView.builder(
-      controller: _pageController,
-      onPageChanged: (index) {
-        // 页面切换时重置缩放状态
-        _resetZoom();
-        setState(() {
-          _currentPage = index;
-          _readingProgress = index / (_imageUrls.length - 1);
-        });
-        _preloadNearbyPages();
-        // 页面切换时立即保存进度
-        _saveReadingProgress();
-        if (_showControls) {
-          _startHideTimer();
-        }
+    if (_dualPageMode && _imageUrls.isNotEmpty) {
+      // 智能双页模式：根据图片宽高比决定显示方式
+      int pageCount = _getPageCount();
 
-        // 检测是否到达章节末尾（通过滑动翻页时）
-        if (index == _imageUrls.length - 1) {
-          // 到达章节末尾，自动标记为已阅读
-          _markCurrentChapterAsRead();
-          // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
-          Future.delayed(Duration(milliseconds: 500), () {
-            if (mounted && _currentPage == _imageUrls.length - 1) {
-              _showChapterTransition();
-            }
+      return PageView.builder(
+        controller: _pageController,
+        onPageChanged: (index) {
+          // 页面切换时重置缩放状态
+          _resetZoom();
+
+          // 获取当前页面显示的图片索引
+          List<int> imageIndices = _getImageIndicesForPage(index);
+          if (imageIndices.isNotEmpty) {
+            setState(() {
+              _currentPage = imageIndices.first;
+              _readingProgress = _currentPage / (_imageUrls.length - 1);
+            });
+          }
+
+          _preloadNearbyPages();
+          // 页面切换时立即保存进度
+          _saveReadingProgress();
+          if (_showControls) {
+            _startHideTimer();
+          }
+
+          // 检测是否到达章节末尾（通过滑动翻页时）
+          if (index == pageCount - 1) {  // 最后一个页面
+            // 到达章节末尾，自动标记为已阅读
+            _markCurrentChapterAsRead();
+            // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
+            Future.delayed(Duration(milliseconds: 500), () {
+              if (mounted && index == pageCount - 1) {
+                _showChapterTransition();
+              }
+            });
+          }
+        },
+        itemCount: pageCount,
+        reverse: _readingDirection == ReadingDirection.rightToLeft,
+        itemBuilder: (context, index) {
+          return _buildSmartPage(_imageUrls, index);
+        },
+      );
+    } else {
+      // 单页模式
+      return PageView.builder(
+        controller: _pageController,
+        onPageChanged: (index) {
+          // 页面切换时重置缩放状态
+          _resetZoom();
+          setState(() {
+            _currentPage = index;
+            _readingProgress = index / (_imageUrls.length - 1);
           });
-        }
-      },
-      itemCount: _imageUrls.length,
-      reverse: _readingDirection == ReadingDirection.rightToLeft,
-      itemBuilder: (context, index) {
-        return _buildImagePage(_imageUrls[index]);
-      },
-    );
+          _preloadNearbyPages();
+          // 页面切换时立即保存进度
+          _saveReadingProgress();
+          if (_showControls) {
+            _startHideTimer();
+          }
+
+          // 检测是否到达章节末尾（通过滑动翻页时）
+          if (index == _imageUrls.length - 1) {
+            // 到达章节末尾，自动标记为已阅读
+            _markCurrentChapterAsRead();
+            // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
+            Future.delayed(Duration(milliseconds: 500), () {
+              if (mounted && _currentPage == _imageUrls.length - 1) {
+                _showChapterTransition();
+              }
+            });
+          }
+        },
+        itemCount: _imageUrls.length,
+        reverse: _readingDirection == ReadingDirection.rightToLeft,
+        itemBuilder: (context, index) {
+          return _buildImagePage(_imageUrls[index]);
+        },
+      );
+    }
   }
 
   Widget _buildVerticalReader() {
@@ -1092,6 +1363,31 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     );
   }
 
+  Widget _buildSmartPage(List<String> imageUrls, int pageIndex) {
+    List<int> imageIndices = _getImageIndicesForPage(pageIndex);
+
+    // 如果只有一个图片索引，或者第一个图片是横向的，则只显示一张图片
+    if (imageIndices.length == 1 || _isLandscapeImage(imageIndices.first)) {
+      int imageIndex = imageIndices.first;
+      if (imageIndex < imageUrls.length) {
+        return _buildImagePage(imageUrls[imageIndex]);
+      } else {
+        return Container(
+          color: Colors.black,
+          child: Center(
+            child: Text(
+              '页面不存在',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      }
+    } else {
+      // 显示双页（两个纵向图片并排）
+      return _buildDualPageSmart(imageUrls, imageIndices);
+    }
+  }
+
   Widget _buildImagePage(String imageUrl) {
     return Container(
       color: Colors.black,
@@ -1132,6 +1428,326 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDualPageSmart(List<String> imageUrls, List<int> imageIndices) {
+    // 确保有两个图片索引用于双页显示
+    if (imageIndices.length < 2) {
+      if (imageIndices.isNotEmpty) {
+        int singleImageIndex = imageIndices.first;
+        if (singleImageIndex < imageUrls.length) {
+          return _buildImagePage(imageUrls[singleImageIndex]);
+        }
+      }
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Text(
+            '页面不存在',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+
+    int leftImageIndex = imageIndices[0];
+    int rightImageIndex = imageIndices[1];
+
+    // 检查是否有左右两页的图片
+    bool hasLeftImage = leftImageIndex < imageUrls.length;
+    bool hasRightImage = rightImageIndex < imageUrls.length;
+
+    return Container(
+      color: Colors.black,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          double containerWidth = constraints.maxWidth;
+          double containerHeight = constraints.maxHeight;
+
+          return Stack(
+            children: [
+              // 第一页 - 在容器的左半部分
+              if (hasRightImage)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: containerWidth / 2 - 0.5, // 减少0.5像素确保精确对齐
+                  height: containerHeight,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrls[rightImageIndex],
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerRight, // 调整图片对齐方式
+                    placeholder: (context, url) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Color(0xFFFF6B6B),
+                              size: 50,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '图片加载失败',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: containerWidth / 2 - 0.5,
+                  height: containerHeight,
+                  child: Container(
+                    color: Colors.black,
+                    child: Center(
+                      child: Text(
+                        '页面不存在',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // 第二页 - 在容器的右半部分
+              if (hasLeftImage)
+                Positioned(
+                  left: containerWidth / 2 + 0.5, // 加上0.5像素缝隙
+                  top: 0,
+                  width: containerWidth / 2 - 0.5, // 减少0.5像素确保精确对齐
+                  height: containerHeight,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrls[leftImageIndex],
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerLeft, // 调整图片对齐方式
+                    placeholder: (context, url) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Color(0xFFFF6B6B),
+                              size: 50,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '图片加载失败',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Positioned(
+                  left: containerWidth / 2 + 0.5,
+                  top: 0,
+                  width: containerWidth / 2 - 0.5,
+                  height: containerHeight,
+                  child: Container(
+                    color: Colors.black,
+                    child: Center(
+                      child: Text(
+                        '页面不存在',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // 添加1像素的细线作为页面分隔（可选，如果需要的话）
+              Positioned(
+                left: containerWidth / 2 - 0.5, // 在两页之间
+                top: 0,
+                width: 1,  // 1像素宽的分隔线
+                height: containerHeight,
+                child: Container(
+                  color: Colors.black, // 与背景色一致，几乎不可见
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDualPage(List<String> imageUrls, int pageIndex) {
+    // 计算要显示的图片索引
+    int rightImageIndex = pageIndex * 2;  // 右页（在从右到左阅读中是较小的页码）
+    int leftImageIndex = pageIndex * 2 + 1;  // 左页（在从右到左阅读中是较大的页码）
+
+    // 检查是否有左右两页的图片
+    bool hasLeftImage = leftImageIndex < imageUrls.length;
+    bool hasRightImage = rightImageIndex < imageUrls.length;
+
+    return Container(
+      color: Colors.black,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          double containerWidth = constraints.maxWidth;
+          double containerHeight = constraints.maxHeight;
+
+          return Stack(
+            children: [
+              // 第一页 - 在容器的左半部分
+              if (hasRightImage)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: containerWidth / 2 - 0.5, // 减少0.5像素确保精确对齐
+                  height: containerHeight,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrls[rightImageIndex],
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerRight, // 调整图片对齐方式
+                    placeholder: (context, url) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Color(0xFFFF6B6B),
+                              size: 50,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '图片加载失败',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: containerWidth / 2 - 0.5,
+                  height: containerHeight,
+                  child: Container(
+                    color: Colors.black,
+                    child: Center(
+                      child: Text(
+                        '页面不存在',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // 第二页 - 在容器的右半部分
+              if (hasLeftImage)
+                Positioned(
+                  left: containerWidth / 2 + 0.5, // 加上0.5像素缝隙
+                  top: 0,
+                  width: containerWidth / 2 - 0.5, // 减少0.5像素确保精确对齐
+                  height: containerHeight,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrls[leftImageIndex],
+                    fit: BoxFit.contain,
+                    alignment: Alignment.centerLeft, // 调整图片对齐方式
+                    placeholder: (context, url) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Color(0xFFFF6B6B),
+                              size: 50,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '图片加载失败',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Positioned(
+                  left: containerWidth / 2 + 0.5,
+                  top: 0,
+                  width: containerWidth / 2 - 0.5,
+                  height: containerHeight,
+                  child: Container(
+                    color: Colors.black,
+                    child: Center(
+                      child: Text(
+                        '页面不存在',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // 添加1像素的细线作为页面分隔（可选，如果需要的话）
+              Positioned(
+                left: containerWidth / 2 - 0.5, // 在两页之间
+                top: 0,
+                width: 1,  // 1像素宽的分隔线
+                height: containerHeight,
+                child: Container(
+                  color: Colors.black, // 与背景色一致，几乎不可见
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1237,22 +1853,47 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                     overlayColor: Color(0xFFFF6B6B).withOpacity(0.2),
                     trackHeight: 4.0,
                   ),
-                  child: Slider(
-                    value: _currentPage.toDouble(),
-                    min: 0,
-                    max: (_imageUrls.length - 1).toDouble(),
-                    onChanged: (value) {
-                      int newPage = value.round();
-                      setState(() {
-                        _currentPage = newPage;
-                      });
-                      _pageController.animateToPage(
-                        newPage,
-                        duration: Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                  ),
+                  child: _dualPageMode
+                    ? Slider(
+                        value: _getPageIndexOfImage(_currentPage).toDouble(),
+                        min: 0,
+                        max: (_getPageCount() - 1).toDouble(),
+                        onChanged: (value) {
+                          int newPageIndex = value.round();
+
+                          // 找到新页面对应的图片索引
+                          List<int> imageIndices = _getImageIndicesForPage(newPageIndex);
+                          if (imageIndices.isNotEmpty) {
+                            int newPage = imageIndices.first;
+
+                            setState(() {
+                              _currentPage = newPage;
+                            });
+
+                            _pageController.animateToPage(
+                              newPageIndex,
+                              duration: Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        },
+                      )
+                    : Slider(
+                        value: _currentPage.toDouble(),
+                        min: 0,
+                        max: (_imageUrls.length - 1).toDouble(),
+                        onChanged: (value) {
+                          int newPage = value.round();
+                          setState(() {
+                            _currentPage = newPage;
+                          });
+                          _pageController.animateToPage(
+                            newPage,
+                            duration: Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                      ),
                 ),
                 const SizedBox(height: 8),
                 // 页面信息和控制按钮
@@ -1260,7 +1901,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '第 ${_currentPage + 1}/${_imageUrls.length} 页',
+                      _dualPageMode
+                        ? '第 ${_getPageIndexOfImage(_currentPage) + 1}/${_getPageCount()} 页 (智能双页模式)'
+                        : '第 ${_currentPage + 1}/${_imageUrls.length} 页',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -1365,12 +2008,57 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                     ),
                   ],
                 ),
+                SizedBox(height: 20),
+                Text(
+                  '双页模式',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 10),
+                _buildDualPageOption(),
               ],
             ),
           ),
           ),
         );
       },
+    );
+  }
+
+  /// 构建双页模式选项
+  Widget _buildDualPageOption() {
+    return SwitchListTile(
+      title: Text(
+        '启用双页模式',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+        ),
+      ),
+      value: _dualPageMode,
+      onChanged: (bool value) {
+        setState(() {
+          _dualPageMode = value;
+          _config = ReadingGestureConfig(
+            readingDirection: _readingDirection,
+            tapToZoom: _config.tapToZoom,
+            volumeButtonNavigation: _config.volumeButtonNavigation,
+            fullscreenOnTap: _config.fullscreenOnTap,
+            keepScreenOn: _config.keepScreenOn,
+            autoHideControlsDelay: _config.autoHideControlsDelay,
+            enableImmersiveMode: _config.enableImmersiveMode,
+            dualPageMode: value,
+            gestureActions: _config.gestureActions,
+          );
+        });
+        HapticFeedbackManager.lightImpact();
+        _showSnackBar(value ? '已启用双页模式' : '已禁用双页模式');
+      },
+      activeColor: Color(0xFFFF6B6B),
+      activeTrackColor: Color(0xFFFF6B6B).withOpacity(0.3),
     );
   }
 
@@ -1390,6 +2078,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             keepScreenOn: _config.keepScreenOn,
             autoHideControlsDelay: _config.autoHideControlsDelay,
             enableImmersiveMode: _config.enableImmersiveMode,
+            dualPageMode: _config.dualPageMode, // 保留双页模式设置
             gestureActions: _config.gestureActions,
           );
         });
