@@ -186,6 +186,7 @@ class ReadingGestureConfig {
   final bool keepScreenOn;
   final Duration autoHideControlsDelay;
   final bool enableImmersiveMode;
+  final bool dualPageMode; // 双页模式
 
   // 手势动作映射
   final Map<TouchArea, Map<GestureType, String>> gestureActions;
@@ -198,6 +199,7 @@ class ReadingGestureConfig {
     this.keepScreenOn = true,
     this.autoHideControlsDelay = const Duration(seconds: 3),
     this.enableImmersiveMode = true,
+    this.dualPageMode = false, // 默认不启用双页模式
     this.gestureActions = const {
       TouchArea.leftEdge: {
         GestureType.tap: 'previous_page',
