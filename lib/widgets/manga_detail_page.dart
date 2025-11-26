@@ -75,9 +75,14 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
       final progress = await _progressService.getProgress(manga.id);
 
       // 默认从第一章第一页开始
-      String targetChapterId = manga.chapters.isNotEmpty ? manga.chapters[0].id : "";
+      String targetChapterId = "";
       int targetPageNum = 1;
       String buttonText = "开始阅读";
+
+      // 安全获取第一章ID
+      if (manga.chapters.isNotEmpty) {
+        targetChapterId = manga.chapters[0].id;
+      }
 
       if (progress != null) {
         // 查找进度记录中的章节是否在当前漫画章节列表中
@@ -118,7 +123,15 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
       final fullManga = await _mangaDetailFuture;
 
       final targetChapters = fullManga.chapters.where((chapter) => chapter.id == _targetChapterId).toList();
-      final targetChapter = targetChapters.isNotEmpty ? targetChapters.first : fullManga.chapters[0];
+      final targetChapter = targetChapters.isNotEmpty
+          ? targetChapters.first
+          : (fullManga.chapters.isNotEmpty ? fullManga.chapters[0] : null);
+
+      // 如果没有可用的章节，直接返回
+      if (targetChapter == null) {
+        print('错误：没有可用的章节');
+        return;
+      }
 
       // 记录用户选择了这个章节，从指定页码开始阅读
       await _progressService.saveProgress(
@@ -150,7 +163,18 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
       // 如果获取完整数据失败，使用初始数据作为备选
       print('获取完整漫画数据失败，使用初始数据: $error');
       final targetChapters = widget.manga.chapters.where((chapter) => chapter.id == _targetChapterId).toList();
-      final targetChapter = targetChapters.isNotEmpty ? targetChapters.first : widget.manga.chapters[0];
+      final targetChapter = targetChapters.isNotEmpty
+          ? targetChapters.first
+          : (widget.manga.chapters.isNotEmpty ? widget.manga.chapters[0] : null);
+
+      // 如果没有可用的章节，显示错误并返回
+      if (targetChapter == null) {
+        print('错误：没有可用的章节');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('无法找到可用的章节')),
+        );
+        return;
+      }
 
       // 记录用户选择了这个章节，从指定页码开始阅读
       await _progressService.saveProgress(
