@@ -7,10 +7,6 @@ import '../services/reading_progress_service.dart';
 import '../utils/reader_gestures.dart';
 import '../utils/image_cache_manager.dart';
 import '../utils/page_animation_manager.dart';
-import '../utils/error_boundary.dart';
-import '../utils/debug_logger.dart';
-import '../utils/crash_diagnostic.dart';
-import '../utils/performance_monitor.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -155,23 +151,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   @override
   void initState() {
-    DebugLogger.methodEnter('EnhancedReaderPage.initState', params: {
-      'mangaId': widget.manga.id,
-      'chapterId': widget.chapter.id,
-      'chaptersCount': widget.chapters.length,
-      'initialConfig': widget.initialConfig?.readingDirection.toString(),
-    });
-
-    // 初始化崩溃诊断
-    CrashDiagnostic.reset();
-    CrashDiagnostic.addDiagnostic('mangaId', widget.manga.id);
-    CrashDiagnostic.addDiagnostic('chapterId', widget.chapter.id);
-    CrashDiagnostic.addDiagnostic('chaptersCount', widget.chapters.length);
-    CrashDiagnostic.addDiagnostic('initialConfig', widget.initialConfig?.readingDirection.toString());
-
-    // 开始性能监控
-    PerformanceMonitor.startMonitoring();
-
     super.initState();
 
     // 注册WidgetsBinding观察者
@@ -274,19 +253,10 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     if (_config.keepScreenOn) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
-
-    DebugLogger.methodExit('EnhancedReaderPage.initState');
   }
 
   void _loadChapterImages() async {
-    DebugLogger.methodEnter('_loadChapterImages');
-    CrashDiagnostic.logMethodCall('_loadChapterImages');
-    PerformanceMonitor.startTimer('loadChapterImages');
-
     try {
-      DebugLogger.log('开始加载章节图片');
-      CrashDiagnostic.addDiagnostic('loadingState', 'loading_images');
-
       final apiImageFiles = await MangaApiService.getChapterImageFiles(
         widget.manga.id,
         widget.chapter.id,
@@ -295,9 +265,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       if (!mounted) return;
 
       if (apiImageFiles.isNotEmpty) {
-        DebugLogger.log('获取到 ${apiImageFiles.length} 张图片');
-        CrashDiagnostic.addDiagnostic('apiImageFilesCount', apiImageFiles.length);
-
         List<String> imageUrls = [];
         for (String fileName in apiImageFiles) {
           imageUrls.add(
@@ -309,19 +276,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           );
         }
 
-        DebugLogger.log('构建了 ${imageUrls.length} 个图片URL');
-        CrashDiagnostic.addDiagnostic('imageUrlsCount', imageUrls.length);
-        CrashDiagnostic.addDiagnostic('imageUrlsSample', imageUrls.take(3).toList());
-
         setState(() {
           _uiState = _uiState.copyWith(
             imageUrls: imageUrls,
             isLoading: false,
           );
         });
-
-        // 记录图片加载性能
-        PerformanceMonitor.recordMemoryUsage('ChapterImagesLoaded', imageUrls.length * 1024 * 1024);
 
         // 预加载附近页面
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -343,21 +303,13 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           );
         });
       }
-    } catch (e, stackTrace) {
-      DebugLogger.error('加载章节图片失败', error: e, stackTrace: stackTrace);
-      CrashDiagnostic.logCrash('加载章节图片失败', error: e, stackTrace: stackTrace);
-      PerformanceMonitor.recordError('loadChapterImages');
-
+    } catch (e) {
       setState(() {
         _uiState = _uiState.copyWith(
           errorMessage: "加载章节失败: $e",
           isLoading: false,
         );
       });
-    } finally {
-      CrashDiagnostic.addDiagnostic('loadingState', 'completed');
-      PerformanceMonitor.stopTimer('loadChapterImages');
-      DebugLogger.methodExit('_loadChapterImages');
     }
   }
 
@@ -678,10 +630,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   /// 获取图片尺寸（延迟加载，避免阻塞UI）
   Future<Size> _getImageSize(String imageUrl, int index) async {
-    PerformanceMonitor.startTimer('getImageSize');
-
     if (_imageSizes.containsKey(index)) {
-      PerformanceMonitor.stopTimer('getImageSize');
       return _imageSizes[index] ?? Size(1000, 1500); // 提供默认值避免空指针
     }
 
@@ -721,14 +670,11 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         },
       );
 
-      PerformanceMonitor.stopTimer('getImageSize');
       return result;
     } catch (e) {
       // 如果无法获取尺寸，返回默认值
       final Size defaultSize = Size(1000, 1500); // 假设默认纵向图片
       _imageSizes[index] = defaultSize;
-      PerformanceMonitor.recordError('getImageSize');
-      PerformanceMonitor.stopTimer('getImageSize');
       return defaultSize;
     }
   }
@@ -1071,8 +1017,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
 
   void _previousPage() {
-    PerformanceMonitor.startTimer('pageSwitch');
-
     if (_uiState.dualPageMode) {
       // 智能双页模式
       int currentPageIndex = _getPageIndexOfImage(_uiState.currentPage);
@@ -1086,7 +1030,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             curve: config.curve,
           );
         }
-        PerformanceMonitor.recordPageSwitch(currentPageIndex, currentPageIndex - 1, config.duration);
       }
     } else {
       // 单页模式
@@ -1099,16 +1042,11 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             curve: config.curve,
           );
         }
-        PerformanceMonitor.recordPageSwitch(_uiState.currentPage, _uiState.currentPage - 1, config.duration);
       }
     }
-
-    PerformanceMonitor.stopTimer('pageSwitch');
   }
 
   void _nextPage() {
-    PerformanceMonitor.startTimer('pageSwitch');
-
     if (_uiState.dualPageMode) {
       // 智能双页模式
       int currentPageIndex = _getPageIndexOfImage(_uiState.currentPage);
@@ -1123,7 +1061,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             curve: config.curve,
           );
         }
-        PerformanceMonitor.recordPageSwitch(currentPageIndex, currentPageIndex + 1, config.duration);
       } else {
         // 到达章节末尾，自动标记为已阅读并显示过渡画面
         _markCurrentChapterAsRead();
@@ -1140,21 +1077,16 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             curve: config.curve,
           );
         }
-        PerformanceMonitor.recordPageSwitch(_uiState.currentPage, _uiState.currentPage + 1, config.duration);
       } else {
         // 到达章节末尾，自动标记为已阅读并显示过渡画面
         _markCurrentChapterAsRead();
         _showChapterTransition();
       }
     }
-
-    PerformanceMonitor.stopTimer('pageSwitch');
   }
 
   /// 滑动翻页
   void _swipePage(bool isForward, Offset velocity) {
-    PerformanceMonitor.startTimer('swipePage');
-
     if (_uiState.dualPageMode) {
       // 智能双页模式
       int currentPageIndex = _getPageIndexOfImage(_uiState.currentPage);
@@ -1169,7 +1101,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
               curve: config.curve,
             );
           }
-          PerformanceMonitor.recordPageSwitch(currentPageIndex, currentPageIndex + 1, config.duration);
         }
       } else {
         if (currentPageIndex > 0) {
@@ -1180,7 +1111,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
               curve: config.curve,
             );
           }
-          PerformanceMonitor.recordPageSwitch(currentPageIndex, currentPageIndex - 1, config.duration);
         }
       }
     } else {
@@ -1194,7 +1124,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
               curve: config.curve,
             );
           }
-          PerformanceMonitor.recordPageSwitch(_uiState.currentPage, _uiState.currentPage + 1, config.duration);
         }
       } else {
         if (_uiState.currentPage > 0) {
@@ -1205,12 +1134,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
               curve: config.curve,
             );
           }
-          PerformanceMonitor.recordPageSwitch(_uiState.currentPage, _uiState.currentPage - 1, config.duration);
         }
       }
     }
-
-    PerformanceMonitor.stopTimer('swipePage');
   }
 
 
@@ -1508,10 +1434,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   @override
   Widget build(BuildContext context) {
-    // 使用错误边界包装整个阅读器，防止崩溃
-    return ErrorBoundary(
-      child: _buildReaderContent(),
-    );
+    return _buildReaderContent();
   }
 
   /// 构建阅读器内容
