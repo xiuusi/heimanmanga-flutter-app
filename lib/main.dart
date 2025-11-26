@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
 import 'widgets/tablet_main_page.dart';
 import 'widgets/page_transitions.dart';
 import 'utils/image_cache_manager.dart';
@@ -6,28 +8,44 @@ import 'utils/memory_manager_simplified.dart';
 import 'utils/theme_manager.dart';
 
 /// 应用程序入口点
-/// 
+///
 /// 这是Flutter应用程序的主入口函数，负责初始化应用并运行主应用组件
 void main() async {
-  // 初始化Flutter框架绑定，确保在访问任何Flutter API之前完成
-  WidgetsFlutterBinding.ensureInitialized();
+  // 使用runZonedGuarded包装整个应用，捕获所有未处理的异常
+  runZonedGuarded(() async {
+    // 设置Flutter框架异常处理
+    FlutterError.onError = (FlutterErrorDetails details) {
+      print('🚨 Flutter异常: ${details.exception}');
+      print('📋 堆栈跟踪: ${details.stack}');
+      print('📝 异常库: ${details.library}');
+      // 可以在这里添加崩溃上报逻辑
+    };
 
-  // 从本地存储加载之前保存的主题设置
-  await ThemeManager().loadThemeMode();
+    // 初始化Flutter框架绑定，确保在访问任何Flutter API之前完成
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // 启动主应用程序
-  runApp(const MangaReaderApp());
+    // 从本地存储加载之前保存的主题设置
+    await ThemeManager().loadThemeMode();
 
-  // 在应用启动后延迟初始化缓存和内存管理器
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    try {
-      // 初始化图片缓存管理器，优化图片加载性能
-      ImageCacheManager.initializeCache();
-      // 初始化内存管理器，定期检查和优化内存使用
-      MemoryManager.instance.initialize();
-    } catch (e) {
-      // 初始化缓存管理器时出错
-    }
+    // 启动主应用程序
+    runApp(const MangaReaderApp());
+
+    // 在应用启动后延迟初始化缓存和内存管理器
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        // 初始化图片缓存管理器，优化图片加载性能
+        ImageCacheManager.initializeCache();
+        // 初始化内存管理器，定期检查和优化内存使用
+        MemoryManager.instance.initialize();
+      } catch (e) {
+        print('⚠️ 初始化缓存管理器时出错: $e');
+      }
+    });
+  }, (error, stackTrace) {
+    // 捕获所有未处理的Dart异常
+    print('🚨 全局Dart异常: $error');
+    print('📋 全局堆栈跟踪: $stackTrace');
+    // 可以在这里添加崩溃上报逻辑
   });
 }
 
