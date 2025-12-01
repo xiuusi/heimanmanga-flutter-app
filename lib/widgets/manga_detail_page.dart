@@ -6,6 +6,7 @@ import 'enhanced_reader_page.dart';
 import 'page_transitions.dart';
 import 'loading_animations_simplified.dart';
 import '../utils/image_cache_manager.dart';
+import '../utils/responsive_layout.dart';
 
 
 class MangaDetailPage extends StatefulWidget {
@@ -265,6 +266,12 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
             });
           }
 
+          // 平板模式使用双栏布局
+          if (ResponsiveLayout.isTablet(context) || ResponsiveLayout.isLargeTablet(context)) {
+            return _buildTabletLayout(manga);
+          }
+
+          // 手机模式使用原有布局
           return SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +296,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                   borderRadius: BorderRadius.circular(24.0),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withAlpha(77), // 0.3 * 255 ≈ 77
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -343,7 +350,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                 borderRadius: BorderRadius.circular(8.0),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withAlpha(26), // 0.1 * 255 ≈ 26
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -357,7 +364,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                 placeholder: (context, url) => Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8.0),
-                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                   child: Center(
                     child: LoadingAnimations.dotLoader(
@@ -369,7 +376,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                 errorWidget: (context, url, error) => Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8.0),
-                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                   child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
@@ -396,7 +403,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                     '作者: ${manga.author}',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      color: Theme.of(context).colorScheme.onSurface.withAlpha(179), // 0.7 * 255 ≈ 179
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -458,10 +465,10 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: _getTagColor(namespace).withOpacity(0.1),
+                      color: _getTagColor(namespace).withAlpha(26), // 0.1 * 255 ≈ 26
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _getTagColor(namespace).withOpacity(0.3),
+                        color: _getTagColor(namespace).withAlpha(77), // 0.3 * 255 ≈ 77
                         width: 1,
                       ),
                     ),
@@ -537,7 +544,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                   : '暂无简介',
               style: TextStyle(
                 fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.onSurface.withAlpha(179), // 0.7 * 255 ≈ 179
                 height: 1.5,
               ),
             ),
@@ -574,7 +581,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                     '暂无章节',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      color: Theme.of(context).colorScheme.onSurface.withAlpha(179), // 0.7 * 255 ≈ 179
                     ),
                   ),
                 ),
@@ -629,7 +636,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
+                                color: Colors.green.withAlpha(26), // 0.1 * 255 ≈ 26
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: Colors.green,
@@ -651,10 +658,10 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                         '文件大小: ${(chapter.fileSize / (1024 * 1024)).toStringAsFixed(2)} MB',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          color: Theme.of(context).colorScheme.onSurface.withAlpha(179), // 0.7 * 255 ≈ 179
                         ),
                       ),
-                      trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                      trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withAlpha(128)), // 0.5 * 255 ≈ 128
                       onTap: () async {
                         await Navigator.push(
                           context,
@@ -720,4 +727,236 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
       ),
     );
   }
+
+  // 平板模式下的漫画头部布局
+  Widget _buildTabletMangaHeader(Manga manga) {
+    final coverSize = ResponsiveLayout.getTabletCoverSize(context);
+    final fontScale = ResponsiveLayout.getTabletFontScale(context);
+
+    return Container(
+      color: Theme.of(context).cardColor,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 封面图片
+            Container(
+              width: coverSize.width,
+              height: coverSize.height,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(38), // 0.15 * 255 ≈ 38
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: OptimizedCachedNetworkImage(
+                imageUrl: MangaApiService.getCoverUrl(manga.id),
+                width: coverSize.width,
+                height: coverSize.height,
+                fit: BoxFit.contain,
+                placeholder: (context, url) => Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.0),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  ),
+                  child: Center(
+                    child: LoadingAnimations.dotLoader(
+                      dotSize: 8.0,
+                      duration: const Duration(milliseconds: 800),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.0),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  ),
+                  child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ),
+            const SizedBox(width: 24),
+            // 基本信息 - 平板模式下更宽的布局
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    manga.title,
+                    style: TextStyle(
+                      fontSize: 24 * fontScale,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '作者: ${manga.author}',
+                    style: TextStyle(
+                      fontSize: 16 * fontScale,
+                      color: Theme.of(context).colorScheme.onSurface.withAlpha(179), // 0.7 * 255 ≈ 179
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 标签
+                  if (manga.tags.isNotEmpty)
+                    _buildTagsSection(manga.tags),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  /// 构建平板模式的双栏布局
+  Widget _buildTabletLayout(Manga manga) {
+    return Row(
+      children: [
+        // 左侧：封面+信息栏 (60%宽度)
+        Expanded(
+          flex: 6,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTabletMangaHeader(manga),
+                _buildMangaDescription(manga),
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        ),
+        // 右侧：章节列表栏 (40%宽度)
+        Expanded(
+          flex: 4,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: Theme.of(context).dividerColor,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: _buildTabletChapterList(manga),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建平板模式的章节列表
+  Widget _buildTabletChapterList(Manga manga) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 章节列表标题
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).dividerColor,
+                width: 1,
+              ),
+            ),
+          ),
+          child: Text(
+            '章节列表 (${manga.chapters.length}章)',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+        // 章节列表
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: manga.chapters.length,
+            itemBuilder: (context, index) {
+              final chapter = manga.chapters[index];
+              final isChapterRead = _chapterReadStatus[chapter.id] ?? false;
+
+              return Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Theme.of(context).dividerColor,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  leading: CircleAvatar(
+                    backgroundColor: isChapterRead
+                        ? Colors.green
+                        : const Color(0xFFFF6B6B),
+                    foregroundColor: Colors.white,
+                    radius: 16,
+                    child: Text(
+                      '${index + 1}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    chapter.title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${chapter.totalPages}页',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurface.withAlpha(128),
+                    ),
+                  ),
+                  trailing: isChapterRead
+                      ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                      : null,
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      PageTransitions.customPageRoute(
+                        child: EnhancedReaderPage(
+                          manga: manga,
+                          chapter: chapter,
+                          chapters: manga.chapters,
+                        ),
+                        transitionBuilder: PageTransitions.fadeTransition,
+                      ),
+                    );
+
+                    // 从阅读器返回后刷新阅读状态和按钮状态
+                    if (mounted) {
+                      _loadChapterReadStatus(manga);
+                      _calculateReadButtonState(manga);
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
 }

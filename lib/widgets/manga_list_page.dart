@@ -6,6 +6,7 @@ import 'carousel_widget.dart';
 import 'page_transitions.dart';
 import 'loading_animations_simplified.dart';
 import '../utils/image_cache_manager.dart';
+import '../utils/responsive_layout.dart';
 
 // 整个漫画列表页面的主 Widget
 class MangaListPage extends StatefulWidget {
@@ -351,17 +352,18 @@ class _MangaListPageState extends State<MangaListPage> {
   
   // 构建漫画网格视图
   Widget _buildMangaGridWidget(List<Manga> mangaList) {
-    // 定义网格的间距
-    const double gridSpacing = 16.0;
+    // 使用响应式布局参数
+    final double gridSpacing = ResponsiveLayout.getTabletGridSpacing(context);
+    final double maxCrossAxisExtent = ResponsiveLayout.getTabletCardMaxWidth(context);
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200, // 每个子项的最大宽度
-        childAspectRatio: 2 / 3.2, // 子项的宽高比，为文字留出更多空间
-        crossAxisSpacing: gridSpacing, // 水平间距
-        mainAxisSpacing: gridSpacing, // 垂直间距
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: maxCrossAxisExtent, // 响应式卡片宽度
+        childAspectRatio: 2 / 3.2, // 保持原有宽高比
+        crossAxisSpacing: gridSpacing, // 响应式水平间距
+        mainAxisSpacing: gridSpacing, // 响应式垂直间距
       ),
       itemCount: mangaList.length,
       itemBuilder: (context, index) {
