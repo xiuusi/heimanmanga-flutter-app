@@ -5,8 +5,8 @@ import '../models/manga.dart';
 import '../services/api_service.dart';
 import '../services/reading_progress_service.dart';
 import '../utils/reader_gestures.dart';
-import '../utils/image_cache_manager.dart';
 import '../utils/page_animation_manager.dart';
+import '../utils/dual_page_utils.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -45,14 +45,20 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   String? _errorMessage;
   List<String> _imageUrls = [];
 
+  // 双页阅读状态
+  DualPageConfig _dualPageConfig = DualPageConfig();
+  List<PageGroup> _pageGroups = [];
+  int _currentGroupIndex = 0;
+  int _pageInGroup = 0;  // 分组内的页面索引：0（左/上）或1（右/下）
+
   // 章节跳转状态
   int _currentChapterIndex = 0;
   bool _isLoadingNextChapter = false;
 
   // UI状态
   Timer? _hideTimer;
-  bool _isInFullscreen = false;
-  bool _showSettingsPanel = false;
+  bool _isInFullscreen = false; // ignore: unused_field
+  bool _showSettingsPanel = false; // ignore: unused_field
 
   // 缩放和拖拽
   double _currentScale = 1.0;
@@ -651,7 +657,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.black.withOpacity(0.9),
+        backgroundColor: Colors.black.withAlpha(230),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -679,7 +685,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
               Text(
                 message,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withAlpha(204),
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -693,7 +699,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(
                     '取消',
-                    style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                    style: TextStyle(color: Colors.white.withAlpha(179)),
                   ),
                 ),
                 ElevatedButton(
@@ -1012,40 +1018,110 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   Widget _buildHorizontalReader() {
-    return PageView.builder(
-      controller: _pageController,
-      onPageChanged: (index) {
-        // 页面切换时重置缩放状态
-        _resetZoom();
-        setState(() {
-          _currentPage = index;
-          _readingProgress = index / (_imageUrls.length - 1);
-        });
-        _preloadNearbyPages();
-        // 页面切换时立即保存进度
-        _saveReadingProgress();
-        if (_showControls) {
-          _startHideTimer();
-        }
+    final actualLayout = _getActualLayout(context);
 
-        // 检测是否到达章节末尾（通过滑动翻页时）
-        if (index == _imageUrls.length - 1) {
-          // 到达章节末尾，自动标记为已阅读
-          _markCurrentChapterAsRead();
-          // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
-          Future.delayed(Duration(milliseconds: 500), () {
-            if (mounted && _currentPage == _imageUrls.length - 1) {
-              _showChapterTransition();
-            }
+    if (actualLayout == PageLayout.single) {
+      // 单页模式：使用原始页面列表
+      return PageView.builder(
+        controller: _pageController,
+        onPageChanged: (index) {
+          // 页面切换时重置缩放状态
+          _resetZoom();
+          setState(() {
+            _currentPage = index;
+            _readingProgress = index / (_imageUrls.length - 1);
           });
-        }
-      },
-      itemCount: _imageUrls.length,
-      reverse: _readingDirection == ReadingDirection.rightToLeft,
-      itemBuilder: (context, index) {
-        return _buildImagePage(_imageUrls[index]);
-      },
-    );
+          _preloadNearbyPages();
+          // 页面切换时立即保存进度
+          _saveReadingProgress();
+          if (_showControls) {
+            _startHideTimer();
+          }
+
+          // 检测是否到达章节末尾（通过滑动翻页时）
+          if (index == _imageUrls.length - 1) {
+            // 到达章节末尾，自动标记为已阅读
+            _markCurrentChapterAsRead();
+            // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
+            Future.delayed(Duration(milliseconds: 500), () {
+              if (mounted && _currentPage == _imageUrls.length - 1) {
+                _showChapterTransition();
+              }
+            });
+          }
+        },
+        itemCount: _imageUrls.length,
+        reverse: _readingDirection == ReadingDirection.rightToLeft,
+        itemBuilder: (context, index) {
+          return _buildImagePage(_imageUrls[index]);
+        },
+      );
+    } else {
+      // 双页模式：使用分组页面
+      _pageGroups = _getPageGroups(context);
+
+      return PageView.builder(
+        controller: _pageController,
+        onPageChanged: (groupIndex) {
+          // 页面切换时重置缩放状态
+          _resetZoom();
+
+          // 计算对应的原始页面索引
+          final group = _pageGroups[groupIndex];
+          int newPageIndex = _currentPage;
+          if (group.urls.isNotEmpty && group.urls[0] != null) {
+            // 使用分组中的第一个非空页面作为当前页面索引
+            final firstUrl = group.urls[0]!;
+            newPageIndex = _imageUrls.indexOf(firstUrl);
+          } else if (group.urls.length > 1 && group.urls[1] != null) {
+            final secondUrl = group.urls[1]!;
+            newPageIndex = _imageUrls.indexOf(secondUrl);
+          }
+
+          // 计算分组内页面索引
+          int pageInGroup = 0;
+          if (group.urls.isNotEmpty && group.urls[0] != null &&
+              _imageUrls.indexOf(group.urls[0]!) == newPageIndex) {
+            pageInGroup = 0;
+          } else if (group.urls.length > 1 && group.urls[1] != null &&
+                     _imageUrls.indexOf(group.urls[1]!) == newPageIndex) {
+            pageInGroup = 1;
+          }
+
+          setState(() {
+            _currentGroupIndex = groupIndex;
+            _currentPage = newPageIndex;
+            _pageInGroup = pageInGroup;
+            _readingProgress = newPageIndex / (_imageUrls.length - 1);
+          });
+
+          _preloadNearbyPages();
+          // 页面切换时立即保存进度
+          _saveReadingProgress();
+          if (_showControls) {
+            _startHideTimer();
+          }
+
+          // 检测是否到达章节末尾（双页模式下）
+          if (newPageIndex >= _imageUrls.length - 2) { // 接近末尾
+            // 到达章节末尾，自动标记为已阅读
+            _markCurrentChapterAsRead();
+            // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
+            Future.delayed(Duration(milliseconds: 500), () {
+              if (mounted && _currentPage >= _imageUrls.length - 2) {
+                _showChapterTransition();
+              }
+            });
+          }
+        },
+        itemCount: _pageGroups.length,
+        reverse: _readingDirection == ReadingDirection.rightToLeft,
+        itemBuilder: (context, groupIndex) {
+          final group = _pageGroups[groupIndex];
+          return _buildDoublePage(group);
+        },
+      );
+    }
   }
 
   Widget _buildVerticalReader() {
@@ -1095,45 +1171,102 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   Widget _buildImagePage(String imageUrl) {
     return Container(
       color: Colors.black,
-      child: Transform.scale(
-        scale: _currentScale,
-        child: Transform.translate(
-          offset: _panOffset,
-          child: CachedNetworkImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.contain,
-            placeholder: (context, url) => Container(
-              color: Colors.black,
-              child: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
-                ),
+      child: _buildImageContent(imageUrl),
+    );
+  }
+
+  /// 构建图片核心内容（不带外层Container）
+  /// [alignment] 可选的对齐方式，用于双页模式确保图片贴紧分隔线
+  Widget _buildImageContent(String imageUrl, {AlignmentGeometry? alignment}) {
+    Widget imageWidget = CachedNetworkImage(
+      imageUrl: imageUrl,
+      fit: BoxFit.scaleDown,
+      placeholder: (context, url) => Container(
+        color: Colors.black,
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+          ),
+        ),
+      ),
+      errorWidget: (context, url, error) => Container(
+        color: Colors.black,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Color(0xFFFF6B6B),
+                size: 50,
               ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              color: Colors.black,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      color: Color(0xFFFF6B6B),
-                      size: 50,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      '图片加载失败',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 10),
+              Text(
+                '图片加载失败',
+                style: TextStyle(color: Colors.white),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
+
+    // 如果需要对齐，用Align包裹
+    if (alignment != null) {
+      imageWidget = Align(
+        alignment: alignment,
+        child: imageWidget,
+      );
+    }
+
+    return Transform.scale(
+      scale: _currentScale,
+      child: Transform.translate(
+        offset: _panOffset,
+        child: imageWidget,
+      ),
+    );
+  }
+
+  /// 构建双页布局
+  Widget _buildDoublePage(PageGroup group) {
+    final isRTL = _readingDirection == ReadingDirection.rightToLeft;
+
+    // 根据阅读方向决定左右页面显示顺序
+    // 从左到右阅读：左侧显示第0页，右侧显示第1页
+    // 从右到左阅读：左侧显示第1页，右侧显示第0页（先读右侧页面）
+    final leftPageIndex = isRTL ? 1 : 0;
+    final rightPageIndex = isRTL ? 0 : 1;
+
+    return Container(
+      color: Colors.black,
+      child: Row(
+        children: [
+          // 左侧页面 - 右对齐确保贴紧分隔线
+          Expanded(
+            child: _buildPageInGroup(group, leftPageIndex, isRTL, alignment: Alignment.centerRight),
+          ),
+          // 1.51像素分隔线
+          Container(width: 1.51, color: Colors.black),
+          // 右侧页面 - 左对齐确保贴紧分隔线
+          Expanded(
+            child: _buildPageInGroup(group, rightPageIndex, isRTL, alignment: Alignment.centerLeft),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建分组中的单个页面
+  /// [alignment] 可选的对齐方式，用于确保图片贴紧分隔线
+  Widget _buildPageInGroup(PageGroup group, int index, bool isRTL, {AlignmentGeometry? alignment}) {
+    if (index >= group.urls.length || group.urls[index] == null) {
+      // 空白页
+      return Container(color: Colors.black);
+    }
+
+    final url = group.urls[index]!;
+    return _buildImageContent(url, alignment: alignment);
   }
 
   Widget _buildTopControls() {
@@ -1150,7 +1283,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(0.8),
+                  Colors.black.withAlpha(204),
                   Colors.transparent,
                 ],
               ),
@@ -1184,7 +1317,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                       Text(
                         '第${_getCurrentChapter().number}章: ${_getCurrentChapter().title}',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withAlpha(204),
                           fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
@@ -1215,7 +1348,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Colors.black.withOpacity(0.8),
+                  Colors.black.withAlpha(204),
                   Colors.transparent,
                 ],
               ),
@@ -1234,7 +1367,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                     activeTrackColor: Color(0xFFFF6B6B),
                     inactiveTrackColor: Colors.grey[600],
                     thumbColor: Color(0xFFFF6B6B),
-                    overlayColor: Color(0xFFFF6B6B).withOpacity(0.2),
+                    overlayColor: const Color(0xFFFF6B6B).withAlpha(51),
                     trackHeight: 4.0,
                   ),
                   child: Slider(
@@ -1306,15 +1439,16 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             width: 350,
             padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.95),
+              color: Colors.black.withAlpha(242),
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(16),
                 bottomRight: Radius.circular(16),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1365,8 +1499,38 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                     ),
                   ],
                 ),
+                SizedBox(height: 24),
+                Text(
+                  '双页阅读',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Column(
+                  children: [
+                    _buildPageLayoutOption('单页模式', PageLayout.single),
+                    SizedBox(height: 8),
+                    _buildPageLayoutOption('双页模式', PageLayout.double),
+                    SizedBox(height: 8),
+                    _buildPageLayoutOption('自动模式', PageLayout.auto),
+                    SizedBox(height: 12),
+                    _buildToggleOption(
+                      '启用页面移位',
+                      _dualPageConfig.shiftDoublePage,
+                      (value) {
+                        setState(() {
+                          _dualPageConfig.shiftDoublePage = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ],
             ),
+          ),
           ),
           ),
         );
@@ -1400,7 +1564,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         width: double.infinity,
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Color(0xFFFF6B6B).withOpacity(0.2) : Colors.transparent,
+          color: isSelected ? const Color(0xFFFF6B6B).withAlpha(51) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? Color(0xFFFF6B6B) : Colors.grey[700]!,
@@ -1427,6 +1591,128 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         ),
       ),
     );
+  }
+
+  /// 构建页面布局选项
+  Widget _buildPageLayoutOption(String title, PageLayout layout) {
+    final isSelected = _dualPageConfig.pageLayout == layout;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _dualPageConfig.pageLayout = layout;
+        });
+        HapticFeedbackManager.lightImpact();
+        _showSnackBar('已切换到$title');
+      },
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFFF6B6B).withAlpha(51) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Color(0xFFFF6B6B) : Colors.grey[700]!,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              color: isSelected ? Color(0xFFFF6B6B) : Colors.grey[500],
+              size: 20,
+            ),
+            SizedBox(width: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建开关选项
+  Widget _buildToggleOption(String title, bool value, ValueChanged<bool> onChanged) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.grey[700]!,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: const Color(0xFFFF6B6B),
+            trackColor: MaterialStateProperty.all(const Color(0xFFFF6B6B).withAlpha(128)), // ignore: deprecated_member_use
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 获取当前的分组页面列表
+  List<PageGroup> _getPageGroups(BuildContext context) {
+    final isLandscape = DualPageUtils.isLandscape(context);
+    return DualPageUtils.groupPages(_imageUrls, _dualPageConfig, isLandscape);
+  }
+
+  /// 获取实际布局（考虑自动模式）
+  PageLayout _getActualLayout(BuildContext context) {
+    final isLandscape = DualPageUtils.isLandscape(context);
+    if (_dualPageConfig.pageLayout == PageLayout.auto) {
+      return isLandscape ? PageLayout.double : PageLayout.single;
+    }
+    return _dualPageConfig.pageLayout;
+  }
+
+  /// 根据当前页面索引计算分组索引和分组内页面索引
+  _updateGroupIndices() {
+    final layout = _dualPageConfig.pageLayout;
+    final isLandscape = DualPageUtils.isLandscape(context);
+    final actualLayout = _getActualLayout(context);
+
+    if (actualLayout == PageLayout.single) {
+      // 单页模式：当前页面就是分组索引
+      _currentGroupIndex = _currentPage;
+      _pageInGroup = 0;
+    } else {
+      // 双页模式：需要计算分组索引
+      _currentGroupIndex = DualPageUtils.findGroupIndex(
+        _currentPage,
+        actualLayout,
+        _dualPageConfig.shiftDoublePage,
+      );
+
+      // 计算分组内页面索引
+      if (_dualPageConfig.shiftDoublePage && _currentGroupIndex == 0) {
+        // 移位后的第一个分组可能包含空白页
+        _pageInGroup = _currentPage == 0 ? 1 : 0;
+      } else {
+        _pageInGroup = _currentPage % 2;
+      }
+    }
   }
 
 }

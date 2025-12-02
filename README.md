@@ -38,37 +38,42 @@
 
 ```
 lib/
-├── main.dart                          # 应用入口和主题配置
-├── models/
-│   ├── manga.dart                     # 漫画、章节、标签数据模型
-│   ├── drift_models.dart              # 数据库模型定义
-│   └── drift_models.g.dart            # 生成的数据库代码
-├── services/
-│   ├── api_service.dart               # API服务 - 与后端通信
-│   ├── reading_progress_service.dart  # 阅读进度管理服务
-│   └── drift_reading_progress_manager.dart # 数据库进度管理
-├── utils/
-│   ├── theme_manager.dart             # 主题管理器
+├── main.dart                          # 应用入口文件
+├── components/                        # 组件目录
+│   └── tablet_navigation_drawer.dart  # 平板导航抽屉组件
+├── models/                            # 数据模型目录
+│   ├── drift_models.dart              # Drift数据库模型定义
+│   ├── drift_models.g.dart            # Drift生成的代码
+│   └── manga.dart                     # 漫画数据模型
+├── services/                          # 服务层目录
+│   ├── api_service.dart               # API服务
+│   ├── drift_reading_progress_manager.dart  # Drift阅读进度管理器
+│   └── reading_progress_service.dart  # 阅读进度服务
+├── utils/                             # 工具类目录
+│   ├── dual_page_utils.dart           # 双页模式工具类
 │   ├── image_cache_manager.dart       # 图片缓存管理器
 │   ├── memory_manager_simplified.dart # 内存管理器
-│   ├── smart_preload_manager.dart     # 预加载管理器
-│   ├── parsers.dart                   # 数据解析器
-│   ├── reader_gestures.dart           # 阅读器手势控制
 │   ├── page_animation_manager.dart    # 页面动画管理器
-│   └── haptic_feedback_manager.dart   # 触觉反馈管理器
-└── widgets/
+│   ├── parsers.dart                   # 数据解析器
+│   ├── reader_gestures.dart           # 阅读器手势处理
+│   ├── responsive_layout.dart         # 响应式布局工具
+│   ├── smart_preload_manager.dart     # 智能预加载管理器
+│   └── theme_manager.dart             # 主题管理器
+└── widgets/                           # 界面组件目录
+    ├── about_page.dart                # 关于页面
+    ├── carousel_widget.dart           # 轮播组件
+    ├── enhanced_reader_page.dart      # 增强版阅读器页面
+    ├── history_page.dart              # 历史记录页面
+    ├── loading_animations_simplified.dart  # 加载动画
     ├── main_navigation_page.dart      # 主导航页面
-    ├── manga_list_page.dart           # 漫画列表页面（含轮播图）
     ├── manga_detail_page.dart         # 漫画详情页面
-    ├── search_page.dart               # 搜索页面
-    ├── tags_page.dart                 # 标签页面
-    ├── enhanced_reader_page.dart      # 增强阅读器页面
-    ├── history_page.dart              # 阅读历史页面
-    ├── carousel_widget.dart           # 轮播图组件
+    ├── manga_list_page.dart           # 漫画列表页面
     ├── page_transitions.dart          # 页面过渡动画
-    ├── loading_animations_simplified.dart # 加载动画组件
+    ├── pagination_widget.dart         # 分页组件
+    ├── search_page.dart               # 搜索页面
     ├── settings_page.dart             # 设置页面
-    └── about_page.dart                # 关于页面
+    ├── tablet_main_page.dart          # 平板主页面
+    └── tags_page.dart                # 标签页面
 ```
 
 ### 🔧 技术栈
@@ -118,7 +123,7 @@ flutter build apk --split-per-abi --release
 
 ## 📊 版本信息
 
-- **当前版本**: 0.1.17+1
+- **当前版本**: 0.1.18+1
 - **Flutter SDK**: 3.35.0+
 - **Dart SDK**: 3.9.0+
 
