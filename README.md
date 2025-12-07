@@ -13,7 +13,7 @@
 
 这是一个完全使用AI辅助AI来开发的Flutter漫画阅读应用，作为配套应用与[漫画网站](https://c.xiongouke.top)
 
-**开发工具**: Claude code/DeepSeek V3.2 + Qwen-Coder-CIi vscode + Claude code/deepseek3.2
+**开发工具**: Claude code/DeepSeek V3.2 + Qwen-Coder-CIi + vscode + Claude code/deepseek3.2
 
 **辅助AI的AI**: ChatGPT5、Gemini2.5pro-search、Claude-haiku-4-5、gemini3-pro 等。
 
