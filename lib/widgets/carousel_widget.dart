@@ -370,14 +370,21 @@ class _CarouselWidgetState extends State<CarouselWidget>
 
   // 处理轮播图点击事件
   void _handleCarouselTap(BuildContext context, String linkUrl) async {
+    // 在异步操作前检查 mounted
+    if (!mounted) return;
+
+
     try {
       // 解析URL
       final uri = Uri.parse(linkUrl);
-      
+
       // 检查是否是漫画详情链接格式
-      if (_isMangaDetailLink(uri)) {
+      final isMangaLink = _isMangaDetailLink(uri);
+
+      if (isMangaLink) {
         // 漫画详情链接 - 内部跳转
         final mangaId = uri.queryParameters['id'];
+
         if (mangaId == null) {
           _showErrorSnackBar(context, '无效的漫画链接格式');
           return;
@@ -397,7 +404,7 @@ class _CarouselWidgetState extends State<CarouselWidget>
         try {
           // 获取漫画详情
           final manga = await MangaApiService.getMangaById(mangaId);
-          
+
           // 关闭加载对话框
           Navigator.of(context).pop();
 
@@ -410,22 +417,41 @@ class _CarouselWidgetState extends State<CarouselWidget>
           );
         } catch (e) {
           // 关闭加载对话框（如果存在）
-          if (Navigator.of(context).canPop()) {
+          if (mounted && Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
-          _showErrorSnackBar(context, '加载漫画详情失败: $e');
+          if (mounted) {
+            _showErrorSnackBar(context, '加载漫画详情失败: $e');
+          }
         }
       } else {
         // 其他链接 - 外部浏览器打开
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        final canLaunch = await canLaunchUrl(uri);
+
+        if (canLaunch) {
+          try {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } catch (e) {
+            if (mounted) {
+              _showErrorSnackBar(context, '打开链接失败: $e');
+            }
+          }
         } else {
-          _showErrorSnackBar(context, '无法打开链接');
+          // 尝试直接调用 launchUrl，有时 canLaunchUrl 检查过于严格
+          try {
+            await launchUrl(uri, mode: LaunchMode.platformDefault);
+          } catch (e) {
+            if (mounted) {
+              _showErrorSnackBar(context, '无法打开链接，请检查设备是否安装了浏览器应用。\n链接: $linkUrl');
+            }
+          }
         }
       }
 
     } catch (e) {
-      _showErrorSnackBar(context, '处理链接失败: $e');
+      if (mounted) {
+        _showErrorSnackBar(context, '处理链接失败: $e');
+      }
     }
   }
 

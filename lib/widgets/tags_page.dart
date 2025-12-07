@@ -178,6 +178,109 @@ class _TagsPageState extends State<TagsPage> {
     }
   }
 
+
+
+  // 构建标签描述容器（仅在选中标签时显示）
+  Widget _buildTagDescriptionContainer() {
+    if (_selectedTag == null || _selectedTag!.description == null || _selectedTag!.description!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Builder(
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '标签描述：${_selectedTag!.name}',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                    width: 1,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    _selectedTag!.description!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 构建分类描述容器（仅在选中分类时显示）
+  Widget _buildNamespaceDescriptionContainer() {
+    if (_selectedTag != null) {
+      // 如果选中了标签，不显示分类描述
+      return const SizedBox.shrink();
+    }
+
+    if (_selectedNamespace == null || _selectedNamespace!.description == null || _selectedNamespace!.description!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Builder(
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '分类描述：${_selectedNamespace!.displayName}',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                    width: 1,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    _selectedNamespace!.description!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -195,6 +298,11 @@ class _TagsPageState extends State<TagsPage> {
                     ),
               ),
             ),
+          ),
+
+          // 分类描述容器（选中分类时显示）
+          SliverToBoxAdapter(
+            child: _buildNamespaceDescriptionContainer(),
           ),
 
           // 搜索框
@@ -352,6 +460,11 @@ class _TagsPageState extends State<TagsPage> {
                   ],
                 ),
               ),
+            ),
+
+            // 标签描述
+            SliverToBoxAdapter(
+              child: _buildTagDescriptionContainer(),
             ),
 
             // 漫画网格
