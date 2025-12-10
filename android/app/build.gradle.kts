@@ -37,6 +37,17 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // 修改APK输出文件名，包含版本号
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this
+            if (output is com.android.build.gradle.internal.api.ApkVariantOutputImpl) {
+                output.outputFileName = "heimanmanga-${variant.versionName}-${variant.name}.apk"
+            }
+        }
+    }
 }
 
 flutter {
