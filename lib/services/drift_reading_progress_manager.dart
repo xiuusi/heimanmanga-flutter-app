@@ -204,23 +204,41 @@ class DriftReadingProgressManager implements ReadingProgressManager {
   Future<List<ReadingProgress>> getRecentRead({int limit = 10, int offset = 0}) async {
     await init();
 
-    final recentQuery = _database!.select(_database!.chapterProgresses)
-      ..orderBy([(tbl) => OrderingTerm.desc(tbl.lastReadTime)])
-      ..limit(limit, offset: offset);
-    final recentChapters = await recentQuery.get();
+    // 使用窗口函数按漫画分组，取每个漫画的最新章节记录
+    // 按最后阅读时间降序排列，如果时间相同则按章节号降序（取最新章节）
+    final query = '''
+      WITH ranked_chapters AS (
+        SELECT *,
+               ROW_NUMBER() OVER (PARTITION BY manga_id ORDER BY last_read_time DESC, number DESC) as rn
+        FROM chapter_progresses
+      )
+      SELECT * FROM ranked_chapters WHERE rn = 1
+      ORDER BY last_read_time DESC
+      LIMIT ? OFFSET ?
+    ''';
 
-    return recentChapters.map((chapter) => ReadingProgress(
-      mangaId: chapter.mangaId,
-      chapterId: chapter.chapterId,
-      chapterTitle: chapter.title,
-      chapterNumber: chapter.number,
-      currentPage: chapter.currentPage,
-      lastReadTime: chapter.lastReadTime,
-      totalPages: chapter.totalPages,
-      readingPercentage: chapter.readingPercentage,
-      isMarkedAsRead: chapter.isMarkedAsRead,
-      readingDuration: chapter.readingDuration,
-    )).toList();
+    final result = await _database!.customSelect(
+      query,
+      variables: [
+        Variable<int>(limit),
+        Variable<int>(offset),
+      ],
+    ).get();
+
+    return result.map((row) {
+      return ReadingProgress(
+        mangaId: row.read<String>('manga_id'),
+        chapterId: row.read<String>('chapter_id'),
+        chapterTitle: row.read<String>('title'),
+        chapterNumber: row.read<int>('number'),
+        currentPage: row.read<int>('current_page'),
+        lastReadTime: row.read<DateTime>('last_read_time'),
+        totalPages: row.read<int>('total_pages'),
+        readingPercentage: row.read<double>('reading_percentage'),
+        isMarkedAsRead: row.read<bool>('is_marked_as_read'),
+        readingDuration: row.read<int>('reading_duration'),
+      );
+    }).toList();
   }
 
   /// 获取总的历史记录数量

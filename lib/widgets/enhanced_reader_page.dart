@@ -34,6 +34,9 @@ class EnhancedReaderPage extends StatefulWidget {
 
 class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  // 过渡页面标识
+  static const String _transitionPageMarker = 'transition://chapter_end';
+
   // 基础控制器
   late PageController _pageController;
   late ScrollController _scrollController;
@@ -49,7 +52,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   DualPageConfig _dualPageConfig = DualPageConfig();
   List<PageGroup> _pageGroups = [];
   int _currentGroupIndex = 0;
-  int _pageInGroup = 0;  // 分组内的页面索引：0（左/上）或1（右/下）
 
   // 章节跳转状态
   int _currentChapterIndex = 0;
@@ -186,6 +188,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             ),
           );
         }
+
+        // 在章节末尾添加过渡页面
+        imageUrls.add(_transitionPageMarker);
 
         setState(() {
           _imageUrls = imageUrls;
@@ -381,6 +386,10 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     // 智能预加载：优先预加载靠近当前页面的图片
     List<int> pagesToPreload = [];
     for (int i = start; i <= end; i++) {
+      // 跳过过渡页面
+      if (_imageUrls[i] == _transitionPageMarker) {
+        continue;
+      }
       if (!_preloadedPages.contains(i)) {
         pagesToPreload.add(i);
       }
@@ -603,9 +612,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         curve: config.curve,
       );
     } else {
-      // 到达章节末尾，自动标记为已阅读并显示过渡画面
-      _markCurrentChapterAsRead();
-      _showChapterTransition();
+      // 已经在过渡页面（章节末尾），不需要做任何事情
+      // 过渡页面已经提供了前往下一章或返回的选项
+      HapticFeedbackManager.lightImpact();
     }
   }
 
@@ -761,6 +770,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             ),
           );
         }
+
+        // 在章节末尾添加过渡页面
+        newImageUrls.add(_transitionPageMarker);
 
         setState(() {
           _currentChapterIndex = nextChapterIndex;
@@ -1039,15 +1051,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           }
 
           // 检测是否到达章节末尾（通过滑动翻页时）
+          // 注意：_imageUrls.length - 1 是过渡页面
+          // 当用户滑动到过渡页面时，标记章节为已阅读
           if (index == _imageUrls.length - 1) {
             // 到达章节末尾，自动标记为已阅读
             _markCurrentChapterAsRead();
-            // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
-            Future.delayed(Duration(milliseconds: 500), () {
-              if (mounted && _currentPage == _imageUrls.length - 1) {
-                _showChapterTransition();
-              }
-            });
+            // 不需要显示过渡对话框，因为过渡页面已经提供了选项
           }
         },
         itemCount: _imageUrls.length,
@@ -1091,7 +1100,6 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           setState(() {
             _currentGroupIndex = groupIndex;
             _currentPage = newPageIndex;
-            _pageInGroup = pageInGroup;
             _readingProgress = newPageIndex / (_imageUrls.length - 1);
           });
 
@@ -1103,15 +1111,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           }
 
           // 检测是否到达章节末尾（双页模式下）
-          if (newPageIndex >= _imageUrls.length - 2) { // 接近末尾
+          // 注意：_imageUrls.length - 1 是过渡页面
+          // 当用户滑动到过渡页面时，标记章节为已阅读
+          if (newPageIndex == _imageUrls.length - 1) {
             // 到达章节末尾，自动标记为已阅读
             _markCurrentChapterAsRead();
-            // 延迟一小段时间再显示过渡画面，避免与滑动动画冲突
-            Future.delayed(Duration(milliseconds: 500), () {
-              if (mounted && _currentPage >= _imageUrls.length - 2) {
-                _showChapterTransition();
-              }
-            });
+            // 不需要显示过渡对话框，因为过渡页面已经提供了选项
           }
         },
         itemCount: _pageGroups.length,
@@ -1143,15 +1148,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             _saveReadingProgress();
 
             // 检测是否到达章节末尾（垂直滚动模式）
+            // 注意：_imageUrls.length - 1 是过渡页面
+            // 当用户滚动到过渡页面时，标记章节为已阅读
             if (currentPage == _imageUrls.length - 1) {
               // 到达章节末尾，自动标记为已阅读
               _markCurrentChapterAsRead();
-              // 延迟一小段时间再显示过渡画面
-              Future.delayed(Duration(milliseconds: 500), () {
-                if (mounted && _currentPage == _imageUrls.length - 1) {
-                  _showChapterTransition();
-                }
-              });
+              // 不需要显示过渡对话框，因为过渡页面已经提供了选项
             }
           }
         }
@@ -1169,6 +1171,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   Widget _buildImagePage(String imageUrl) {
+    if (imageUrl == _transitionPageMarker) {
+      return _buildTransitionPage();
+    }
     return Container(
       color: Colors.black,
       child: _buildImageContent(imageUrl),
@@ -1178,6 +1183,10 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   /// 构建图片核心内容（不带外层Container）
   /// [alignment] 可选的对齐方式，用于双页模式确保图片贴紧分隔线
   Widget _buildImageContent(String imageUrl, {AlignmentGeometry? alignment}) {
+    if (imageUrl == _transitionPageMarker) {
+      return _buildTransitionPage();
+    }
+
     Widget imageWidget = CachedNetworkImage(
       imageUrl: imageUrl,
       fit: BoxFit.scaleDown,
@@ -1230,6 +1239,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   /// 构建双页布局
   Widget _buildDoublePage(PageGroup group) {
+    // 检查是否是过渡页面分组
+    if (group.urls.isNotEmpty && group.urls[0] == _transitionPageMarker) {
+      // 过渡页面独占整个屏幕宽度
+      return _buildTransitionPage();
+    }
+
     final isRTL = _readingDirection == ReadingDirection.rightToLeft;
 
     // 根据阅读方向决定左右页面显示顺序
@@ -1675,7 +1690,31 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   /// 获取当前的分组页面列表
   List<PageGroup> _getPageGroups(BuildContext context) {
     final isLandscape = DualPageUtils.isLandscape(context);
-    return DualPageUtils.groupPages(_imageUrls, _dualPageConfig, isLandscape);
+
+    // 检查是否有过渡页面
+    bool hasTransitionPage = _imageUrls.isNotEmpty && _imageUrls.last == _transitionPageMarker;
+
+    List<String> pagesForGrouping;
+    if (hasTransitionPage) {
+      // 排除过渡页面进行分组
+      pagesForGrouping = _imageUrls.sublist(0, _imageUrls.length - 1);
+    } else {
+      pagesForGrouping = List.from(_imageUrls);
+    }
+
+    // 获取普通页面的分组
+    List<PageGroup> groups = DualPageUtils.groupPages(pagesForGrouping, _dualPageConfig, isLandscape);
+
+    // 如果有过渡页面，添加一个特殊分组
+    if (hasTransitionPage) {
+      // 过渡页面独占一个分组，占据整个屏幕宽度
+      groups.add(PageGroup(
+        index: groups.length,
+        urls: [_transitionPageMarker],
+      ));
+    }
+
+    return groups;
   }
 
   /// 获取实际布局（考虑自动模式）
@@ -1687,30 +1726,139 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     return _dualPageConfig.pageLayout;
   }
 
-  /// 根据当前页面索引计算分组索引和分组内页面索引
-  _updateGroupIndices() {
-    final layout = _dualPageConfig.pageLayout;
-    final isLandscape = DualPageUtils.isLandscape(context);
-    final actualLayout = _getActualLayout(context);
 
-    if (actualLayout == PageLayout.single) {
-      // 单页模式：当前页面就是分组索引
-      _currentGroupIndex = _currentPage;
-      _pageInGroup = 0;
-    } else {
-      // 双页模式：需要计算分组索引
-      _currentGroupIndex = DualPageUtils.findGroupIndex(
-        _currentPage,
-        actualLayout,
-        _dualPageConfig.shiftDoublePage,
+  /// 构建过渡页面
+  Widget _buildTransitionPage() {
+    final bool isLastChapter = _currentChapterIndex >= widget.chapters.length - 1;
+    final bool hasNextChapter = _currentChapterIndex < widget.chapters.length - 1;
+    final Chapter? nextChapter = hasNextChapter ? widget.chapters[_currentChapterIndex + 1] : null;
+
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isLastChapter ? Icons.check_circle : Icons.arrow_forward,
+              color: Color(0xFFFF6B6B),
+              size: 64,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              isLastChapter ? '已是最后一章' : '章节结束',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (nextChapter != null)
+              Text(
+                '下一章: 第${nextChapter.number}章 ${nextChapter.title}',
+                style: TextStyle(
+                  color: Colors.white.withAlpha(204),
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            const SizedBox(height: 8),
+            if (nextChapter != null)
+              FutureBuilder<int>(
+                future: _getChapterPageCount(nextChapter),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return Text(
+                      '共${snapshot.data}页',
+                      style: TextStyle(
+                        color: Colors.white.withAlpha(179),
+                        fontSize: 14,
+                      ),
+                    );
+                  }
+                  return SizedBox.shrink();
+                },
+              ),
+            const SizedBox(height: 32),
+            if (hasNextChapter)
+              ElevatedButton(
+                onPressed: _loadNextChapterAfterTransition,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFFF6B6B),
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text('前往下一章'),
+              ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                if (isLastChapter) {
+                  Navigator.of(context).pop();
+                } else {
+                  _goBackToPreviousPage();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey[800],
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(isLastChapter ? '退出观看' : '返回上一页'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 获取章节页数
+  Future<int> _getChapterPageCount(Chapter chapter) async {
+    try {
+      final apiImageFiles = await MangaApiService.getChapterImageFiles(
+        widget.manga.id,
+        chapter.id,
       );
+      return apiImageFiles.length;
+    } catch (e) {
+      return 0;
+    }
+  }
 
-      // 计算分组内页面索引
-      if (_dualPageConfig.shiftDoublePage && _currentGroupIndex == 0) {
-        // 移位后的第一个分组可能包含空白页
-        _pageInGroup = _currentPage == 0 ? 1 : 0;
+  /// 过渡页面中的"前往下一章"按钮点击处理
+  void _loadNextChapterAfterTransition() {
+    final nextChapterIndex = _currentChapterIndex + 1;
+    if (nextChapterIndex < widget.chapters.length) {
+      _loadNextChapter(nextChapterIndex);
+    }
+  }
+
+  /// 返回到前一页漫画
+  void _goBackToPreviousPage() {
+    if (_currentPage > 0) {
+      // 计算目标页面（过渡页面的前一页）
+      final targetPage = _currentPage - 1;
+
+      if (_readingDirection == ReadingDirection.vertical ||
+          _readingDirection == ReadingDirection.webtoon) {
+        _scrollController.animateTo(
+          targetPage * MediaQuery.of(context).size.height,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
       } else {
-        _pageInGroup = _currentPage % 2;
+        _pageController.animateToPage(
+          targetPage,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
       }
     }
   }
