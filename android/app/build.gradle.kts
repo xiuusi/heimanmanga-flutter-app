@@ -38,13 +38,24 @@ android {
         }
     }
 
-    // 修改APK输出文件名，包含版本号
+    // 修改APK输出文件名，包含版本号和架构信息
     applicationVariants.all {
         val variant = this
         variant.outputs.all {
             val output = this
             if (output is com.android.build.gradle.internal.api.ApkVariantOutputImpl) {
-                output.outputFileName = "heimanmanga-${variant.versionName}-${variant.name}.apk"
+                val abi = output.getFilter(com.android.build.OutputFile.ABI)
+                val version = variant.versionName
+                val variantName = variant.name
+
+                val fileName = if (abi != null) {
+                    // 包含架构的分ABI APK
+                    "heimanmanga-${version}-${abi}-${variantName}.apk"
+                } else {
+                    // 通用APK（不含架构信息）
+                    "heimanmanga-${version}-${variantName}.apk"
+                }
+                output.outputFileName = fileName
             }
         }
     }
