@@ -81,7 +81,9 @@ class _TagsPageState extends State<TagsPage> {
     try {
       final searchResults = await MangaApiService.searchTags(query);
       setState(() {
-        _filteredTags = searchResults;
+        _filteredTags = searchResults
+            .where((tag) => tag.count > 0)
+            .toList();
       });
     } catch (e) {
       if (mounted) {
@@ -95,10 +97,12 @@ class _TagsPageState extends State<TagsPage> {
   void _filterTagsByNamespace(TagNamespace? namespace) {
     setState(() {
       if (namespace == null) {
-        _filteredTags = _allTags;
+        _filteredTags = _allTags
+            .where((tag) => tag.count > 0)
+            .toList();
       } else {
         _filteredTags = _allTags
-            .where((tag) => tag.namespaceName == namespace.name)
+            .where((tag) => tag.namespaceName == namespace.name && tag.count > 0)
             .toList();
       }
     });

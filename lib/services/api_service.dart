@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/manga.dart';
 
 class MangaApiService {
-  static const String baseUrl = 'https://c.xiongouke.top'; // Web端API的URL
+  static const String baseUrl = 'https://www.heiman.cc'; // Web端API的URL
 
   static Future<MangaListResponse> getMangaList({
     int page = 1,
