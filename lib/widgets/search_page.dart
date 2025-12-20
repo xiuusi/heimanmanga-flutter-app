@@ -249,8 +249,15 @@ class _SearchPageState extends State<SearchPage>
                                 backgroundColor: Colors.white.withOpacity(0.3),
                                 selectedColor: Colors.white,
                                 labelStyle: TextStyle(
-                                  color: isSelected ? const Color(0xFFFF6B6B) : Colors.white,
+                                  color: isSelected ? const Color(0xFFFF6B6B) : Colors.white.withOpacity(0.95),
                                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(isSelected ? 0.1 : 0.4),
+                                      offset: const Offset(0, 1),
+                                      blurRadius: 2,
+                                    ),
+                                  ],
                                 ),
                                 side: BorderSide(
                                   color: isSelected ? Colors.white : Colors.white.withOpacity(0.5),

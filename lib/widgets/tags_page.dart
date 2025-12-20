@@ -365,6 +365,13 @@ class _TagsPageState extends State<TagsPage> {
                         labelStyle: TextStyle(
                           color: isSelected ? Colors.white : Colors.black87,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          shadows: isSelected ? [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.2),
+                              offset: const Offset(0, 1),
+                              blurRadius: 2,
+                            ),
+                          ] : null,
                         ),
                       ),
                     );
