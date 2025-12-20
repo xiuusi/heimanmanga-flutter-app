@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'dart:math' as math;
+import '../services/api_service.dart';
 
 class ImageCacheManager {
   static const int maxCacheSize = 500; // 增加最大缓存图片数量
@@ -240,6 +241,11 @@ class OptimizedCachedNetworkImage extends StatelessWidget {
     final memCacheWidthValue = enableMemoryCache ? (memCacheWidth ?? _calculateMemCacheWidth()) : null;
     final memCacheHeightValue = enableMemoryCache ? (memCacheHeight ?? _calculateMemCacheHeight()) : null;
 
+    // 准备HTTP头，包含User-Agent
+    final Map<String, String>? httpHeaders = MangaApiService.userAgent.isNotEmpty
+        ? {'User-Agent': MangaApiService.userAgent}
+        : null;
+
     return CachedNetworkImage(
       imageUrl: imageUrl,
       width: width,
@@ -259,6 +265,7 @@ class OptimizedCachedNetworkImage extends StatelessWidget {
       errorListener: enableRetryOnError ? (error) {
         _handleImageError(error);
       } : null,
+      httpHeaders: httpHeaders,
     );
   }
 

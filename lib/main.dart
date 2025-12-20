@@ -4,6 +4,7 @@ import 'widgets/page_transitions.dart';
 import 'utils/image_cache_manager.dart';
 import 'utils/memory_manager_simplified.dart';
 import 'utils/theme_manager.dart';
+import 'services/api_service.dart';
 
 /// 应用程序入口点
 /// 
@@ -14,6 +15,9 @@ void main() async {
 
   // 从本地存储加载之前保存的主题设置
   await ThemeManager().loadThemeMode();
+
+  // 初始化API服务的User-Agent
+  await MangaApiService.initUserAgent();
 
   // 启动主应用程序
   runApp(const MangaReaderApp());

@@ -423,6 +423,9 @@ class _SearchPageState extends State<SearchPage>
                             color: Colors.grey[200],
                             child: const Icon(Icons.broken_image, color: Colors.grey),
                           ),
+                          httpHeaders: MangaApiService.userAgent.isNotEmpty
+                              ? {'User-Agent': MangaApiService.userAgent}
+                              : null,
                         ),
                       ),
                     ),

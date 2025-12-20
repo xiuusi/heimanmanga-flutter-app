@@ -99,6 +99,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   // 最后一章退出逻辑
   bool _isLastChapterDialogShown = false;
 
+
   // 手势处理器引用
   TouchGestureHandler? _gestureHandler;
 
@@ -1187,6 +1188,11 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       return _buildTransitionPage();
     }
 
+    // 准备HTTP头，包含User-Agent
+    final Map<String, String>? httpHeaders = MangaApiService.userAgent.isNotEmpty
+        ? {'User-Agent': MangaApiService.userAgent}
+        : null;
+
     Widget imageWidget = CachedNetworkImage(
       imageUrl: imageUrl,
       fit: BoxFit.scaleDown,
@@ -1218,6 +1224,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           ),
         ),
       ),
+      httpHeaders: httpHeaders,
     );
 
     // 如果需要对齐，用Align包裹

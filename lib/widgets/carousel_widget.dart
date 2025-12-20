@@ -280,6 +280,9 @@ class _CarouselWidgetState extends State<CarouselWidget>
                   color: Colors.grey[200],
                   child: const Icon(Icons.broken_image, color: Colors.grey),
                 ),
+                httpHeaders: MangaApiService.userAgent.isNotEmpty
+                    ? {'User-Agent': MangaApiService.userAgent}
+                    : null,
               ),
 
               // 渐变遮罩
@@ -462,7 +465,7 @@ class _CarouselWidgetState extends State<CarouselWidget>
     final path = uri.path.toLowerCase();
     
     // 支持的主机名（可以扩展）
-    final supportedHosts = ['c.xiongouke.top', 'localhost', '127.0.0.1'];
+    final supportedHosts = ['www.heiman.cc', 'localhost', '127.0.0.1'];
     
     // 支持的路径模式（可以扩展）
     final supportedPaths = ['/manga-detail.html', '/manga/detail'];

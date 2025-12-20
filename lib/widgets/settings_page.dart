@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:convert';
 import 'about_page.dart';
+import '../services/api_service.dart';
+import '../services/dio_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -29,12 +31,13 @@ class _SettingsPageState extends State<SettingsPage> {
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
 
-      final response = await http.get(
-        Uri.parse('https://api.github.com/repos/xiuusi/heimanmanga-flutter-app/releases'),
+      final dio = DioService().dio;
+      final response = await dio.get(
+        'https://api.github.com/repos/xiuusi/heimanmanga-flutter-app/releases',
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> releases = json.decode(response.body);
+        final List<dynamic> releases = response.data is List ? response.data as List<dynamic> : json.decode(response.data as String);
 
         if (releases.isNotEmpty) {
           final latestRelease = releases.first;
