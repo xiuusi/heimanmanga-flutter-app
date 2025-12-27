@@ -200,6 +200,8 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
         // 预加载附近页面
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          // 预先计算页面分组（避免跳转时重复计算）
+          _pageGroups = _getPageGroups(context);
           _preloadNearbyPages();
         });
       } else {
@@ -314,6 +316,29 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     }
   }
 
+  /// 获取原始页面索引对应的分组索引
+  int _getGroupIndexForPage(int pageIndex) {
+    // 安全检查：图片列表为空时返回0
+    if (_imageUrls.isEmpty) return 0;
+
+    // 边界保护：限制索引范围
+    final clampedIndex = pageIndex.clamp(0, _imageUrls.length - 1);
+
+    final actualLayout = _getActualLayout(context);
+    if (actualLayout == PageLayout.single) {
+      return clampedIndex;
+    }
+
+    // 双页模式：使用高效算法计算分组索引
+    // 注意：pageIndex 是原始页面索引（0,1,2,3...）
+    // 分组索引是分组后的索引（0,1...）
+    return DualPageUtils.findGroupIndex(
+      clampedIndex,
+      actualLayout,
+      _dualPageConfig.shiftDoublePage,
+    );
+  }
+
   /// 执行实际的跳转逻辑
   void _performJumpToProgress() {
     if (_existingProgress == null || _imageUrls.isEmpty) return;
@@ -332,15 +357,15 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         curve: Curves.easeInOut,
       );
     } else {
+      final targetIndex = _getGroupIndexForPage(targetPage);
       _pageController.animateToPage(
-        targetPage,
+        targetIndex,
         duration: Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
     }
 
     HapticFeedbackManager.mediumImpact();
-    _showSnackBar('已跳转到第 ${targetPage + 1} 页');
   }
 
   /// 标记当前章节为已阅读
@@ -1401,11 +1426,22 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                       setState(() {
                         _currentPage = newPage;
                       });
-                      _pageController.animateToPage(
-                        newPage,
-                        duration: Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
+
+                      if (_readingDirection == ReadingDirection.vertical ||
+                          _readingDirection == ReadingDirection.webtoon) {
+                        _scrollController.animateTo(
+                          newPage * MediaQuery.of(context).size.height,
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      } else {
+                        final targetIndex = _getGroupIndexForPage(newPage);
+                        _pageController.animateToPage(
+                          targetIndex,
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      }
                     },
                   ),
                 ),
@@ -1861,8 +1897,9 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
           curve: Curves.easeInOut,
         );
       } else {
+        final targetIndex = _getGroupIndexForPage(targetPage);
         _pageController.animateToPage(
-          targetPage,
+          targetIndex,
           duration: Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
