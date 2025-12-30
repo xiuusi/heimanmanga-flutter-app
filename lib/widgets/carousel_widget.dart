@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -5,324 +6,369 @@ import '../models/manga.dart';
 import '../services/api_service.dart';
 import 'manga_detail_page.dart';
 
-class CarouselWidget extends StatefulWidget {
-  const CarouselWidget({super.key});
-
-  @override
-  State<CarouselWidget> createState() => _CarouselWidgetState();
-}
-
-// 为轮播图组件添加一个GlobalKey类型，以便外部可以调用其方法
-class CarouselWidgetKey extends GlobalKey<_CarouselWidgetState> {
+class CarouselWidgetKey extends GlobalKey<CarouselWidgetState> {
   const CarouselWidgetKey() : super.constructor();
 }
 
-class _CarouselWidgetState extends State<CarouselWidget>
-    with TickerProviderStateMixin {
-  late PageController _pageController;
-  late AnimationController _animationController;
+class CarouselWidget extends StatefulWidget {
+  const CarouselWidget({Key? key}) : super(key: key);
+
+  @override
+  State<CarouselWidget> createState() => CarouselWidgetState();
+}
+
+class CarouselWidgetState extends State<CarouselWidget> {
+  PageController? _pageController;
   int _currentIndex = 0;
   List<CarouselImage> _carouselImages = [];
   bool _isLoading = true;
+  Timer? _timer;
+  
+  double _currentViewportFraction = 0.85;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.9);
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 5),
-      vsync: this,
-    );
     _loadCarouselData();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _initOrUpdateController();
+  }
+
+  void _initOrUpdateController() {
+    final width = MediaQuery.of(context).size.width;
+    
+    double newFraction;
+    if (width >= 1200) {
+      newFraction = 0.6; 
+    } else if (width >= 800) {
+      newFraction = 0.7;
+    } else {
+      newFraction = 0.9;
+    }
+
+    if (_pageController == null || _currentViewportFraction != newFraction) {
+      _currentViewportFraction = newFraction;
+      
+      int initialPage = _currentIndex;
+      if (_pageController != null) {
+        _pageController!.dispose();
+      }
+
+      _pageController = PageController(
+        viewportFraction: _currentViewportFraction, 
+        initialPage: initialPage
+      );
+    }
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
-    _animationController.dispose();
+    _pageController?.dispose();
+    _stopAutoPlay();
     super.dispose();
   }
 
   Future<void> _loadCarouselData() async {
     try {
-      // 获取轮播图数据，默认获取前5张
       final response = await MangaApiService.getCarouselImages(page: 1, limit: 5);
-      setState(() {
-        _carouselImages = response.data.take(5).toList();
-        _isLoading = false;
-      });
-      _startAutoPlay();
+      if (mounted) {
+        setState(() {
+          _carouselImages = response.data.take(5).toList();
+          _isLoading = false;
+        });
+        _startAutoPlay();
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // 公共方法：重新加载轮播图数据
   Future<void> reloadCarouselData() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _currentIndex = 0;
     });
+    _stopAutoPlay();
+    
+    if (_pageController != null) {
+       _pageController!.jumpToPage(0);
+    }
+    
     await _loadCarouselData();
   }
 
   void _startAutoPlay() {
     if (_carouselImages.length <= 1) return;
-
-    _animationController.repeat().then((_) {
-      if (mounted) {
-        _nextPage();
-      }
+    _stopAutoPlay();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      _goToNextPage();
     });
   }
 
   void _stopAutoPlay() {
-    _animationController.stop();
+    _timer?.cancel();
   }
 
-  void _nextPage() {
-    if (_currentIndex < _carouselImages.length - 1) {
-      _currentIndex++;
-    } else {
-      _currentIndex = 0;
-    }
-    if (_pageController.hasClients) {
-      _pageController.animateToPage(
-        _currentIndex,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
+  void _goToNextPage() {
+    if (_pageController != null && _pageController!.hasClients) {
+      int nextPage = _currentIndex + 1;
+      if (nextPage >= _carouselImages.length) {
+        _pageController!.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.fastOutSlowIn,
+        );
+      } else {
+        _pageController!.nextPage(
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.fastOutSlowIn,
+        );
+      }
     }
   }
 
-  void _previousPage() {
-    if (_currentIndex > 0) {
-      _currentIndex--;
-    } else {
-      _currentIndex = _carouselImages.length - 1;
-    }
-    if (_pageController.hasClients) {
-      _pageController.animateToPage(
-        _currentIndex,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
+  void _goToPrevPage() {
+    if (_pageController != null && _pageController!.hasClients) {
+      int prevPage = _currentIndex - 1;
+      if (prevPage < 0) {
+        _pageController!.animateToPage(
+          _carouselImages.length - 1,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.fastOutSlowIn,
+        );
+      } else {
+        _pageController!.previousPage(
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.fastOutSlowIn,
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return SizedBox(
-        height: 200,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
-            ),
-          ),
-        ),
-      );
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isDesktop = screenWidth >= 800;
+    
+    // --- 调整点 1: 高度大幅减小，且基于屏幕高度百分比 ---
+    double carouselHeight;
+    if (isDesktop) {
+      // 桌面端：取屏幕高度的 30%，但限制在 [200, 320] 之间
+      // 这样既符合 "30%" 的直觉，又不会在超大屏上过高，也不会在笔记本上过矮
+      carouselHeight = (screenHeight * 0.3).clamp(230.0, 350.0);
+    } else {
+      // 手机端：固定更小的高度
+      carouselHeight = 230.0;
     }
 
-    if (_carouselImages.isEmpty) {
-      return SizedBox(
-        height: 200,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: const Center(
-            child: Text(
-              '暂无轮播图内容',
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 16,
+    if (_isLoading) return _buildLoadingState(carouselHeight);
+    if (_carouselImages.isEmpty) return _buildEmptyState(carouselHeight);
+
+    return Column(
+      children: [
+        SizedBox(
+          height: carouselHeight,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // 主体
+              Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 1600),
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: _carouselImages.length,
+                    clipBehavior: Clip.none,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                      _stopAutoPlay();
+                      _startAutoPlay();
+                    },
+                    itemBuilder: (context, index) {
+                      return AnimatedBuilder(
+                        animation: _pageController!,
+                        builder: (context, child) {
+                          double page = 0;
+                          try {
+                            page = _pageController!.page ?? index.toDouble();
+                          } catch (_) {
+                            page = index.toDouble();
+                          }
+                          
+                          double value = page - index;
+                          double scaleBase = isDesktop ? 0.9 : 0.9; 
+                          double scale = (1 - (value.abs() * (1 - scaleBase))).clamp(scaleBase, 1.0);
+                          double parallaxOffset = value * (isDesktop ? 60 : 40);
+                          double opacity = isDesktop 
+                              ? (1 - (value.abs() * 0.3)).clamp(0.5, 1.0) 
+                              : 1.0;
+
+                          return Center(
+                            child: SizedBox(
+                              height: scale * carouselHeight, 
+                              width: double.infinity,
+                              child: Opacity(
+                                opacity: opacity,
+                                child: _buildParallaxCard(
+                                  _carouselImages[index], 
+                                  parallaxOffset,
+                                  isDesktop,
+                                  carouselHeight // 传入高度用于调整字体大小
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
+
+              // 按钮 (稍微调小一点)
+              if (isDesktop)
+                Positioned(
+                  left: 24,
+                  child: _buildNavButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: () {
+                      _stopAutoPlay();
+                      _goToPrevPage();
+                      _startAutoPlay();
+                    },
+                  ),
+                ),
+
+              if (isDesktop)
+                Positioned(
+                  right: 24,
+                  child: _buildNavButton(
+                    icon: Icons.arrow_forward_ios_rounded,
+                    onTap: () {
+                      _stopAutoPlay();
+                      _goToNextPage();
+                      _startAutoPlay();
+                    },
+                  ),
+                ),
+            ],
           ),
         ),
-      );
-    }
+        
+        const SizedBox(height: 12), // 间距减小
+        _buildModernIndicators(),
+      ],
+    );
+  }
 
-    return Container(
-      height: 200,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Stack(
-        children: [
-          // 轮播图主体
-          PageView.builder(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-              _stopAutoPlay();
-              _startAutoPlay();
-            },
-            itemCount: _carouselImages.length,
-            itemBuilder: (context, index) {
-              return _buildCarouselItem(_carouselImages[index], index);
-            },
-          ),
-
-          // 左右切换按钮
-          if (_carouselImages.length > 1) ...[
-            Positioned(
-              left: 8,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    onPressed: _previousPage,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 8,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: _nextPage,
-                  ),
-                ),
-              ),
-            ),
-          ],
-
-          // 指示器
-          if (_carouselImages.length > 1)
-            Positioned(
-              bottom: 12,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  _carouselImages.length,
-                  (index) => _buildIndicator(index),
-                ),
-              ),
-            ),
-        ],
+  Widget _buildNavButton({required IconData icon, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.black.withOpacity(0.3),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: const Color(0xFFFF6B6B).withOpacity(0.8),
+        child: Container(
+          width: 40, // 按钮从 48 改为 40
+          height: 40,
+          alignment: Alignment.center,
+          child: Icon(icon, color: Colors.white, size: 20), // 图标缩小
+        ),
       ),
     );
   }
 
-  Widget _buildCarouselItem(CarouselImage carouselImage, int index) {
-    final isActive = index == _currentIndex;
+  Widget _buildParallaxCard(CarouselImage image, double offsetX, bool isDesktop, double currentHeight) {
+    // --- 调整点 2: 根据卡片高度动态调整字体大小 ---
+    // 如果卡片高度只有 200，字体太大就挡住画面了
+    final titleFontSize = isDesktop 
+        ? (currentHeight * 0.08).clamp(16.0, 24.0) // 动态字体
+        : 16.0;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      margin: EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: isActive ? 0 : 8,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isActive ? 0.3 : 0.1),
-            blurRadius: isActive ? 12 : 6,
-            offset: const Offset(0, 4),
+    return GestureDetector(
+      onTap: () => _handleCarouselTap(context, image.linkUrl),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(isDesktop ? 16 : 12), // 圆角稍微减小
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: isDesktop ? 12 : 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: GestureDetector(
-          onTap: () {
-            // 处理轮播图点击事件 - 改为内部跳转
-            if (carouselImage.linkUrl.isNotEmpty) {
-              _handleCarouselTap(context, carouselImage.linkUrl);
-            }
-          },
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 背景图片
-              CachedNetworkImage(
-                imageUrl: MangaApiService.getCarouselImageUrl(carouselImage.id),
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(isDesktop ? 16 : 12),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Transform.translate(
+                  offset: Offset(offsetX, 0),
+                  child: Transform.scale(
+                    scale: 1.1,
+                    child: CachedNetworkImage(
+                      imageUrl: MangaApiService.getCarouselImageUrl(image.id),
+                      fit: BoxFit.cover,
+                      // --- 调整点 3: 减小缓存图片尺寸，节省内存 ---
+                      memCacheHeight: isDesktop ? 500 : 300,
+                      placeholder: (context, url) => Container(color: Colors.grey[800]),
+                      errorWidget: (context, url, error) => const Icon(Icons.broken_image),
+                      httpHeaders: MangaApiService.userAgent.isNotEmpty
+                          ? {'User-Agent': MangaApiService.userAgent}
+                          : null,
                     ),
                   ),
                 ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.broken_image, color: Colors.grey),
-                ),
-                httpHeaders: MangaApiService.userAgent.isNotEmpty
-                    ? {'User-Agent': MangaApiService.userAgent}
-                    : null,
-              ),
 
-              // 渐变遮罩
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.3),
-                      Colors.black.withOpacity(0.7),
-                    ],
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.1),
+                        Colors.black.withOpacity(0.7),
+                      ],
+                      stops: const [0.5, 0.75, 1.0],
+                    ),
                   ),
                 ),
-              ),
 
-              // 内容
-              if (carouselImage.title.isNotEmpty)
                 Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 16,
+                  bottom: isDesktop ? 20 : 12,
+                  left: isDesktop ? 20 : 12,
+                  right: isDesktop ? 20 : 12,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        carouselImage.title,
-                        style: const TextStyle(
+                        image.title,
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: titleFontSize, // 使用调整后的字体大小
                           fontWeight: FontWeight.bold,
+                          height: 1.2,
                           shadows: [
-                            Shadow(
-                              color: Colors.black54,
-                              offset: Offset(0, 1),
-                              blurRadius: 2,
-                            ),
-                          ],
+                            Shadow(blurRadius: 6, color: Colors.black.withOpacity(0.8), offset: const Offset(0, 1))
+                          ]
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -330,162 +376,129 @@ class _CarouselWidgetState extends State<CarouselWidget>
                     ],
                   ),
                 ),
-
-              // 如果有链接，显示链接指示器
-              if (carouselImage.linkUrl.isNotEmpty)
-                Positioned(
-                  right: 16,
-                  top: 16,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.link,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildIndicator(int index) {
-    final isActive = index == _currentIndex;
+  Widget _buildModernIndicators() {
+    if (_carouselImages.length <= 1) return const SizedBox();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(_carouselImages.length, (index) {
+        final isActive = index == _currentIndex;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: isActive ? 24 : 6, // 指示器稍微变小
+          height: 4,
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFFFF6B6B) : Colors.grey.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      }),
+    );
+  }
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: isActive ? 24 : 8,
-      height: 8,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+  Widget _buildLoadingState(double height) {
+    return Container(
+      height: height,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isActive ? Colors.white : Colors.white.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(4),
+        color: Colors.grey[900],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B))),
       ),
     );
   }
 
-  // 处理轮播图点击事件
+  Widget _buildEmptyState(double height) {
+    return Container(
+      height: height,
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(20)),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_not_supported_outlined, size: 48, color: Colors.grey[700]),
+            const Text('暂无推荐内容', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _handleCarouselTap(BuildContext context, String linkUrl) async {
-    // 在异步操作前检查 mounted
     if (!mounted) return;
-
-
     try {
-      // 解析URL
       final uri = Uri.parse(linkUrl);
-
-      // 检查是否是漫画详情链接格式
-      final isMangaLink = _isMangaDetailLink(uri);
-
-      if (isMangaLink) {
-        // 漫画详情链接 - 内部跳转
+      if (_isMangaDetailLink(uri)) {
         final mangaId = uri.queryParameters['id'];
-
         if (mangaId == null) {
           _showErrorSnackBar(context, '无效的漫画链接格式');
           return;
         }
-
-        // 显示加载对话框
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
-            ),
-          ),
-        );
-
-        try {
-          // 获取漫画详情
-          final manga = await MangaApiService.getMangaById(mangaId);
-
-          // 关闭加载对话框
-          Navigator.of(context).pop();
-
-          // 跳转到漫画详情页
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MangaDetailPage(manga: manga),
-            ),
-          );
-        } catch (e) {
-          // 关闭加载对话框（如果存在）
-          if (mounted && Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-          if (mounted) {
-            _showErrorSnackBar(context, '加载漫画详情失败: $e');
-          }
-        }
+        _navigateToMangaDetail(mangaId); 
       } else {
-        // 其他链接 - 外部浏览器打开
         final canLaunch = await canLaunchUrl(uri);
-
         if (canLaunch) {
-          try {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } catch (e) {
-            if (mounted) {
-              _showErrorSnackBar(context, '打开链接失败: $e');
-            }
-          }
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
         } else {
-          // 尝试直接调用 launchUrl，有时 canLaunchUrl 检查过于严格
-          try {
-            await launchUrl(uri, mode: LaunchMode.platformDefault);
-          } catch (e) {
-            if (mounted) {
-              _showErrorSnackBar(context, '无法打开链接，请检查设备是否安装了浏览器应用。\n链接: $linkUrl');
-            }
-          }
+          await launchUrl(uri, mode: LaunchMode.platformDefault);
         }
       }
-
     } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar(context, '处理链接失败: $e');
-      }
+      if (mounted) _showErrorSnackBar(context, '处理链接失败: $e');
     }
   }
 
-  // 判断是否为漫画详情链接
+  Future<void> _navigateToMangaDetail(String mangaId) async {
+     showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B))),
+      ),
+    );
+
+    try {
+      final manga = await MangaApiService.getMangaById(mangaId);
+      if(!mounted) return;
+      Navigator.of(context).pop();
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => MangaDetailPage(manga: manga)),
+      );
+    } catch (e) {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      if (mounted) _showErrorSnackBar(context, '加载漫画详情失败: $e');
+    }
+  }
+
   bool _isMangaDetailLink(Uri uri) {
-    // 检查主机名和路径
-    final host = uri.host.toLowerCase();
+     final host = uri.host.toLowerCase();
     final path = uri.path.toLowerCase();
-    
-    // 支持的主机名（可以扩展）
     final supportedHosts = ['www.heiman.cc', 'localhost', '127.0.0.1'];
-    
-    // 支持的路径模式（可以扩展）
     final supportedPaths = ['/manga-detail.html', '/manga/detail'];
-    
-    // 检查是否有漫画ID参数
     final hasMangaId = uri.queryParameters.containsKey('id');
-    
     return supportedHosts.contains(host) && 
            supportedPaths.any((pattern) => path.contains(pattern)) && 
            hasMangaId;
   }
 
-  // 显示错误提示
   void _showErrorSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 }
