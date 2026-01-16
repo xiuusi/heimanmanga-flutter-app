@@ -109,7 +109,7 @@ lib/
 
 ```bash
 # 克隆项目
-git clone <项目地址>
+git clone https://github.com/xiuusi/heimanmanga-flutter-app.git
 cd heimanmanga-flutter-app
 
 # 安装依赖
