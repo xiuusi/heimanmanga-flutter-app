@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../models/manga.dart';
@@ -8,8 +9,8 @@ class MangaApiService {
   static const String baseUrl = 'https://www.heiman.cc'; // Web端API的URL
   static String _userAgent = '';
 
-  /// 调试模式开关
-  static bool debugMode = true;
+  /// 调试模式开关（仅 debug 构建生效）
+  static bool debugMode = kDebugMode;
 
   /// 初始化User-Agent，应在应用启动时调用
   static Future<void> initUserAgent() async {

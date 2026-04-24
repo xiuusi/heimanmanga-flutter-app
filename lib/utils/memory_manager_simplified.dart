@@ -38,9 +38,6 @@ class MemoryManager {
   // 强制清理所有缓存（在内存紧张时调用）
   void forceCleanup() {
     ImageCacheManager.clearImageCache();
-    // 调整图片缓存大小限制
-    PaintingBinding.instance.imageCache.maximumSize = 100;
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 100 * 1024 * 1024; // 100MB
   }
 
   // 获取内存使用统计
