@@ -46,6 +46,7 @@ lib/
 │   └── manga.dart                     # 漫画数据模型
 ├── services/                          # 服务层目录
 │   ├── api_service.dart               # API服务
+│   ├── dio_service.dart               # Dio客户端配置
 │   ├── drift_reading_progress_manager.dart  # Drift阅读进度管理器
 │   └── reading_progress_service.dart  # 阅读进度服务
 ├── utils/                             # 工具类目录
@@ -53,6 +54,7 @@ lib/
 │   ├── image_cache_manager.dart       # 图片缓存管理器
 │   ├── memory_manager_simplified.dart # 内存管理器
 │   ├── page_animation_manager.dart    # 页面动画管理器
+│   ├── page_transform_state.dart      # 页面变换状态管理
 │   ├── parsers.dart                   # 数据解析器
 │   ├── reader_gestures.dart           # 阅读器手势处理
 │   ├── responsive_layout.dart         # 响应式布局工具
@@ -72,7 +74,7 @@ lib/
     ├── search_page.dart               # 搜索页面
     ├── settings_page.dart             # 设置页面
     ├── tablet_main_page.dart          # 平板主页面
-    └── tags_page.dart                # 标签页面
+    └── tags_page.dart                 # 标签页面
 ```
 
 ### 🔧 技术栈
@@ -83,17 +85,17 @@ lib/
 
 **主要依赖包**
 - `dio: ^5.0.0` - HTTP客户端，用于API通信
-- `cached_network_image: ^3.4.1` - 网络图片缓存
-- `url_launcher: ^6.3.2` - URL启动器
+- `cached_network_image: ^3.3.0` - 网络图片缓存
+- `url_launcher: ^6.2.2` - URL启动器
 - `shared_preferences: ^2.2.2` - 本地存储
 - `drift: ^2.15.0` - 数据库ORM
 - `sqlite3_flutter_libs: ^0.5.3` - SQLite支持
 - `path_provider: ^2.1.1` - 路径提供器
-- `package_info_plus: ^5.0.1` - 包信息获取
+- `package_info_plus: ^4.2.0` - 包信息获取
 
 **开发依赖**
 - `flutter_lints: ^3.0.0` - 代码质量检查
-- `build_runner: ^2.10.3` - 代码生成
+- `build_runner: ^2.4.0` - 代码生成
 - `drift_dev: ^2.15.0` - Drift代码生成
 
 ## 🚀 快速开始
