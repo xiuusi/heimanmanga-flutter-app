@@ -124,7 +124,7 @@ flutter build apk --split-per-abi --release
 
 ## 📊 版本信息
 
-- **当前版本**: 0.1.22+1
+- **当前版本**: 0.1.23+1
 - **Flutter SDK**: 3.35.0+
 - **Dart SDK**: 3.9.0+
 
