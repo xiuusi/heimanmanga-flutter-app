@@ -7,6 +7,7 @@ import '../services/reading_progress_service.dart';
 import '../utils/reader_gestures.dart';
 import '../utils/page_animation_manager.dart';
 import '../utils/dual_page_utils.dart';
+import '../utils/page_transform_state.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -63,9 +64,8 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   bool _showSettingsPanel = false; // ignore: unused_field
 
   // 缩放和拖拽
-  double _currentScale = 1.0;
-  Offset _panOffset = Offset.zero;
-  Offset _cumulativePanOffset = Offset.zero;
+  // 独立页面变换状态管理器
+  final PageTransformManager _pageTransformManager = PageTransformManager();
 
   // 配置
   late ReadingGestureConfig _config;
@@ -101,7 +101,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
 
   // 手势处理器引用
-  TouchGestureHandler? _gestureHandler;
+  dynamic _gestureHandler;
 
   @override
   void initState() {
@@ -316,6 +316,20 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     }
   }
 
+  /// 获取页面状态键（用于独立状态管理）
+  String _getPageStateKey(int pageIndex, {int? groupIndex, int? pageInGroup}) {
+    final actualLayout = _getActualLayout(context);
+
+    if (actualLayout == PageLayout.single) {
+      // 单页模式：使用页面索引作为键
+      return 'page_$pageIndex';
+    } else {
+      // 双页模式：使用分组索引作为统一键，不区分左右页
+      final actualGroupIndex = groupIndex ?? _getGroupIndexForPage(pageIndex);
+      return 'group_$actualGroupIndex';
+    }
+  }
+
   /// 获取原始页面索引对应的分组索引
   int _getGroupIndexForPage(int pageIndex) {
     // 安全检查：图片列表为空时返回0
@@ -404,48 +418,47 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   void _preloadNearbyPages() {
-    if (_imageUrls.isEmpty) return;
+    if (_imageUrls.isEmpty || !mounted) return;
+
+    final screenSize = MediaQuery.of(context).size;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final isDoublePage = _getActualLayout(context) == PageLayout.double;
+    final cacheW = (screenSize.width / (isDoublePage ? 2 : 1) * dpr).round();
+    final cacheH = (screenSize.height * dpr).round();
 
     int start = (_currentPage - _preloadRange).clamp(0, _imageUrls.length - 1);
     int end = (_currentPage + _preloadRange).clamp(0, _imageUrls.length - 1);
 
-    // 智能预加载：优先预加载靠近当前页面的图片
     List<int> pagesToPreload = [];
     for (int i = start; i <= end; i++) {
-      // 跳过过渡页面
-      if (_imageUrls[i] == _transitionPageMarker) {
-        continue;
-      }
+      if (_imageUrls[i] == _transitionPageMarker) continue;
       if (!_preloadedPages.contains(i)) {
         pagesToPreload.add(i);
       }
     }
 
-    // 按距离排序，优先预加载靠近当前页面的图片
     pagesToPreload.sort((a, b) =>
       (a - _currentPage).abs().compareTo((b - _currentPage).abs())
     );
 
-    // 渐进式预加载
     for (int i = 0; i < pagesToPreload.length; i++) {
       final pageIndex = pagesToPreload[i];
       _preloadedPages.add(pageIndex);
 
-      // 延迟预加载较远的图片
       Future.delayed(Duration(milliseconds: i * 50), () {
         if (mounted) {
           precacheImage(
-            CachedNetworkImageProvider(_imageUrls[pageIndex]),
+            ResizeImage.resizeIfNeeded(
+              cacheW, cacheH,
+              CachedNetworkImageProvider(_imageUrls[pageIndex]),
+            ),
             context,
-            onError: (exception, stackTrace) {
-              _preloadedPages.remove(pageIndex);
-            },
+            onError: (_, __) => _preloadedPages.remove(pageIndex),
           );
         }
       });
     }
 
-    // 检查是否需要预加载下一章节
     _checkNextChapterPreload();
   }
 
@@ -502,8 +515,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             // 使用延迟预加载避免阻塞
             Future.delayed(Duration(milliseconds: i * 100), () {
               if (mounted) {
+                final screenSize = MediaQuery.of(context).size;
+                final dpr = MediaQuery.devicePixelRatioOf(context);
+                final cw = (screenSize.width * dpr).round();
+                final ch = (screenSize.height * dpr).round();
                 precacheImage(
-                  CachedNetworkImageProvider(imageUrl),
+                  ResizeImage.resizeIfNeeded(cw, ch, CachedNetworkImageProvider(imageUrl)),
                   context,
                 );
               }
@@ -571,6 +588,14 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   void _handleAction(String action) {
+    if (_isCurrentPageZoomed()) {
+      if (action == 'toggle_ui' || action == 'previous_page' || action == 'next_page') {
+        HapticFeedbackManager.lightImpact();
+        _resetZoom();
+        return;
+      }
+    }
+
     switch (action) {
       case 'previous_page':
         _previousPage();
@@ -588,12 +613,18 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         _showSettings();
         break;
       case 'zoom_in':
-        // 捏合放大已经通过 onZoomChanged 处理
         break;
       case 'zoom_out':
-        // 捏合缩小已经通过 onZoomChanged 处理
         break;
     }
+  }
+
+  bool _isCurrentPageZoomed() {
+    final actualLayout = _getActualLayout(context);
+    final stateKey = actualLayout == PageLayout.double
+        ? 'group_$_currentGroupIndex'
+        : 'page_$_currentPage';
+    return _pageTransformManager.getState(stateKey).isZoomed;
   }
 
   void _toggleUI() {
@@ -607,14 +638,19 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   /// 重置缩放状态
   void _resetZoom() {
-    // 取消缩放重置计时器
     _gestureHandler?.cancelZoomReset();
+    _pageTransformManager.resetAll();
+  }
 
-    setState(() {
-      _currentScale = 1.0;
-      _panOffset = Offset.zero;
-      _cumulativePanOffset = Offset.zero;
-    });
+  /// 处理页面缩放变化（页面感知）
+  void _handlePageZoomChanged(String stateKey, double scale) {
+    _pageTransformManager.updateScale(stateKey, scale);
+  }
+
+  /// 处理页面平移变化（页面感知）
+  void _handlePagePanChanged(String stateKey, Offset offset, AlignmentGeometry? alignment) {
+    final screenSize = MediaQuery.of(context).size;
+    _pageTransformManager.updatePanOffset(stateKey, offset, alignment: alignment, viewportSize: screenSize);
   }
 
 
@@ -922,6 +958,37 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
   @override
   Widget build(BuildContext context) {
+    // 计算当前页面的状态信息，用于页面感知手势
+    final actualLayout = _getActualLayout(context);
+
+    // 单页模式的当前页面状态键
+    String currentPageStateKey = 'page_$_currentPage';
+
+    // 双页模式的左右页面状态键和对齐
+    String leftPageStateKey = '';
+    String rightPageStateKey = '';
+    AlignmentGeometry? leftPageAlignment;
+    AlignmentGeometry? rightPageAlignment;
+
+    if (actualLayout == PageLayout.double && _pageGroups.isNotEmpty) {
+      final isRTL = _readingDirection == ReadingDirection.rightToLeft;
+      final leftPageIndex = isRTL ? 1 : 0;
+      final rightPageIndex = isRTL ? 0 : 1;
+
+      // 获取当前分组
+      final currentGroupIndex = _currentGroupIndex.clamp(0, _pageGroups.length - 1);
+      final group = _pageGroups[currentGroupIndex];
+
+      // 双页模式：使用统一分组键
+      currentPageStateKey = 'group_$currentGroupIndex';
+      leftPageStateKey = currentPageStateKey;
+      rightPageStateKey = currentPageStateKey;
+
+      // 设置对齐方式
+      leftPageAlignment = Alignment.centerRight; // 左页右对齐贴紧分隔线
+      rightPageAlignment = Alignment.centerLeft; // 右页左对齐贴紧分隔线
+    }
+
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -995,32 +1062,25 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
               _settingsAnimationController.reverse();
             }
           },
-          child: EnhancedReaderGestureDetector(
+          child: PageAwareEnhancedReaderGestureDetector(
             config: _config,
+            layout: actualLayout,
             onAction: _handleAction,
-            onZoomChanged: (scale) {
-              setState(() {
-                _currentScale = scale;
-              });
-            },
-            onPanChanged: (offset) {
-              setState(() {
-                // 如果接收到的是 Offset.zero，表示缩放结束，重置累积偏移量
-                if (offset == Offset.zero) {
-                  _cumulativePanOffset = Offset.zero;
-                } else {
-                  // 累积平移偏移量，实现平滑拖动
-                  _cumulativePanOffset += offset;
-                }
-                _panOffset = _cumulativePanOffset;
-              });
-            },
+            onPageZoomChanged: _handlePageZoomChanged,
+            onPagePanChanged: _handlePagePanChanged,
             onSwipePage: (isForward, velocity) {
               _swipePage(isForward, velocity);
             },
+            currentPageStateKey: currentPageStateKey,
+            leftPageStateKey: leftPageStateKey,
+            rightPageStateKey: rightPageStateKey,
+            leftPageAlignment: leftPageAlignment,
+            rightPageAlignment: rightPageAlignment,
             onGestureHandlerCreated: (gestureHandler) {
               _gestureHandler = gestureHandler;
             },
+            onQueryScale: (key) => _pageTransformManager.getState(key).scale,
+            onQueryPan: (key) => _pageTransformManager.getState(key).panOffset,
             child: Stack(
               children: [
                 // 主阅读区域
@@ -1038,9 +1098,38 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
 
                 // 设置面板
                 _buildSettingsPanel(),
+
+                // 章节切换加载覆盖层
+                if (_isLoadingNextChapter)
+                  _buildLoadingOverlay(),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.black54,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '正在加载下一章...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1088,7 +1177,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         itemCount: _imageUrls.length,
         reverse: _readingDirection == ReadingDirection.rightToLeft,
         itemBuilder: (context, index) {
-          return _buildImagePage(_imageUrls[index]);
+          return _buildImagePage(_imageUrls[index], pageIndex: index);
         },
       );
     } else {
@@ -1149,7 +1238,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         reverse: _readingDirection == ReadingDirection.rightToLeft,
         itemBuilder: (context, groupIndex) {
           final group = _pageGroups[groupIndex];
-          return _buildDoublePage(group);
+          return _buildDoublePage(group, groupIndex: groupIndex);
         },
       );
     }
@@ -1190,25 +1279,34 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         scrollDirection: Axis.vertical,
         itemCount: _imageUrls.length,
         itemBuilder: (context, index) {
-          return _buildImagePage(_imageUrls[index]);
+          return _buildImagePage(_imageUrls[index], pageIndex: index);
         },
       ),
     );
   }
 
-  Widget _buildImagePage(String imageUrl) {
+  Widget _buildImagePage(String imageUrl, {int? pageIndex}) {
     if (imageUrl == _transitionPageMarker) {
       return _buildTransitionPage();
     }
     return Container(
       color: Colors.black,
-      child: _buildImageContent(imageUrl),
+      child: _buildImageContent(imageUrl, pageIndex: pageIndex),
     );
   }
 
   /// 构建图片核心内容（不带外层Container）
   /// [alignment] 可选的对齐方式，用于双页模式确保图片贴紧分隔线
-  Widget _buildImageContent(String imageUrl, {AlignmentGeometry? alignment}) {
+  /// [pageIndex] 页面索引，用于独立状态管理（可选，如果不提供则从imageUrl推断）
+  /// [groupIndex] 分组索引，用于双页模式独立状态管理（可选）
+  /// [pageInGroup] 分组内页面索引，用于双页模式独立状态管理（可选）
+  Widget _buildImageContent(String imageUrl, {
+    AlignmentGeometry? alignment,
+    int? pageIndex,
+    int? groupIndex,
+    int? pageInGroup,
+    bool applyTransform = true,
+  }) {
     if (imageUrl == _transitionPageMarker) {
       return _buildTransitionPage();
     }
@@ -1218,8 +1316,28 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
         ? {'User-Agent': MangaApiService.userAgent}
         : null;
 
+    // 计算页面索引（如果未提供）
+    int actualPageIndex = pageIndex ?? _imageUrls.indexOf(imageUrl);
+    if (actualPageIndex == -1) {
+      actualPageIndex = 0; // 后备值
+    }
+
+    // 生成状态键并获取页面变换状态
+    final stateKey = _getPageStateKey(actualPageIndex,
+      groupIndex: groupIndex,
+      pageInGroup: pageInGroup,
+    );
+
+    final screenSize = MediaQuery.of(context).size;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final isDoublePage = _getActualLayout(context) == PageLayout.double;
+    final cacheWidth = (screenSize.width / (isDoublePage ? 2 : 1) * dpr).round();
+    final cacheHeight = (screenSize.height * dpr).round();
+
     Widget imageWidget = CachedNetworkImage(
       imageUrl: imageUrl,
+      memCacheWidth: cacheWidth,
+      memCacheHeight: cacheHeight,
       fit: BoxFit.scaleDown,
       placeholder: (context, url) => Container(
         color: Colors.black,
@@ -1260,17 +1378,27 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       );
     }
 
-    return Transform.scale(
-      scale: _currentScale,
-      child: Transform.translate(
-        offset: _panOffset,
-        child: imageWidget,
-      ),
-    );
+    // 根据参数决定是否应用变换
+    if (applyTransform) {
+      return ListenableBuilder(
+        listenable: _pageTransformManager,
+        builder: (context, _) {
+          final s = _pageTransformManager.getState(stateKey, alignment: alignment);
+          return Transform(
+            transform: Matrix4.identity()
+              ..translate(s.panOffset.dx, s.panOffset.dy)
+              ..scale(s.scale),
+            child: imageWidget,
+          );
+        },
+      );
+    } else {
+      return imageWidget; // 双页模式下，由外层统一变换
+    }
   }
 
   /// 构建双页布局
-  Widget _buildDoublePage(PageGroup group) {
+  Widget _buildDoublePage(PageGroup group, {int? groupIndex}) {
     // 检查是否是过渡页面分组
     if (group.urls.isNotEmpty && group.urls[0] == _transitionPageMarker) {
       // 过渡页面独占整个屏幕宽度
@@ -1285,35 +1413,69 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
     final leftPageIndex = isRTL ? 1 : 0;
     final rightPageIndex = isRTL ? 0 : 1;
 
-    return Container(
+    // 获取统一的状态键
+    final actualGroupIndex = groupIndex ?? _getGroupIndexForPage(leftPageIndex);
+    final stateKey = 'group_$actualGroupIndex';
+
+    // 构建双页内容（不带变换）
+    Widget doublePageContent = Container(
       color: Colors.black,
       child: Row(
         children: [
           // 左侧页面 - 右对齐确保贴紧分隔线
           Expanded(
-            child: _buildPageInGroup(group, leftPageIndex, isRTL, alignment: Alignment.centerRight),
+            child: _buildPageInGroup(
+              group, leftPageIndex, isRTL,
+              alignment: Alignment.centerRight,
+              groupIndex: actualGroupIndex,
+              applyTransform: false, // 不应用独立变换
+            ),
           ),
-          // 1.51像素分隔线
+          // 1.51像素分隔线（作为整体的一部分）
           Container(width: 1.51, color: Colors.black),
           // 右侧页面 - 左对齐确保贴紧分隔线
           Expanded(
-            child: _buildPageInGroup(group, rightPageIndex, isRTL, alignment: Alignment.centerLeft),
+            child: _buildPageInGroup(
+              group, rightPageIndex, isRTL,
+              alignment: Alignment.centerLeft,
+              groupIndex: actualGroupIndex,
+              applyTransform: false, // 不应用独立变换
+            ),
           ),
         ],
       ),
+    );
+
+    // 整体应用变换
+    return ListenableBuilder(
+      listenable: _pageTransformManager,
+      builder: (context, _) {
+        final s = _pageTransformManager.getState(stateKey);
+        return Transform(
+          transform: Matrix4.identity()
+            ..translate(s.panOffset.dx, s.panOffset.dy)
+            ..scale(s.scale),
+          child: doublePageContent,
+        );
+      },
     );
   }
 
   /// 构建分组中的单个页面
   /// [alignment] 可选的对齐方式，用于确保图片贴紧分隔线
-  Widget _buildPageInGroup(PageGroup group, int index, bool isRTL, {AlignmentGeometry? alignment}) {
+  Widget _buildPageInGroup(PageGroup group, int index, bool isRTL, {AlignmentGeometry? alignment, int? groupIndex, bool applyTransform = true}) {
     if (index >= group.urls.length || group.urls[index] == null) {
       // 空白页
       return Container(color: Colors.black);
     }
 
     final url = group.urls[index]!;
-    return _buildImageContent(url, alignment: alignment);
+    return _buildImageContent(url,
+      alignment: alignment,
+      groupIndex: groupIndex,
+      pageInGroup: index,
+      applyTransform: applyTransform,
+    );
   }
 
   Widget _buildTopControls() {
@@ -1538,12 +1700,12 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                   children: [
                     _buildReadingDirectionOption(
                       '从左到右',
-                      ReadingDirection.rightToLeft,
+                      ReadingDirection.leftToRight,
                     ),
                     SizedBox(height: 8),
                     _buildReadingDirectionOption(
                       '从右到左',
-                      ReadingDirection.leftToRight,
+                      ReadingDirection.rightToLeft,
                     ),
                     SizedBox(height: 8),
                     _buildReadingDirectionOption(
