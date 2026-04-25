@@ -821,10 +821,11 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
   /// 构建平板模式的双栏布局
   Widget _buildTabletLayout(Manga manga) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 左侧：封面+信息栏 (60%宽度)
+        // 左侧：封面+信息栏
         Expanded(
-          flex: 6,
+          flex: 5,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -836,9 +837,9 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
             ),
           ),
         ),
-        // 右侧：章节列表栏 (40%宽度)
+        // 右侧：章节列表栏
         Expanded(
-          flex: 4,
+          flex: 5,
           child: Container(
             decoration: BoxDecoration(
               border: Border(

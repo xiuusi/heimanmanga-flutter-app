@@ -21,47 +21,30 @@ class ResponsiveLayout {
     return isLandscape(context) && aspectRatio > 1.3;
   }
 
-  /// 获取平板模式下的网格列数
-  static int getTabletGridColumns(BuildContext context) {
-    if (isLargeTablet(context)) {
-      return 6; // 大平板：6列
-    } else if (isTablet(context)) {
-      return 4; // 平板：4列
-    } else {
-      return 2; // 手机：2列
-    }
+  /// 宽度是否足够启用侧边栏布局（>= 600dp）
+  static bool isWideEnoughForRail(BuildContext context) {
+    return MediaQuery.of(context).size.width >= 600;
   }
 
   /// 获取平板模式下的网格间距
   static double getTabletGridSpacing(BuildContext context) {
     if (isLargeTablet(context)) {
-      return 24.0; // 大平板：更大的间距
+      return 28.0;
     } else if (isTablet(context)) {
-      return 20.0; // 平板：中等间距
+      return 24.0;
     } else {
-      return 16.0; // 手机：默认间距
+      return 16.0;
     }
   }
 
   /// 获取平板模式下的卡片最大宽度
   static double getTabletCardMaxWidth(BuildContext context) {
     if (isLargeTablet(context)) {
-      return 180.0; // 大平板：稍大的卡片
+      return 200.0;
     } else if (isTablet(context)) {
-      return 160.0; // 平板：标准卡片
+      return 180.0;
     } else {
-      return 200.0; // 手机：保持原有设置
-    }
-  }
-
-  /// 获取平板模式下的内容边距
-  static EdgeInsets getTabletContentPadding(BuildContext context) {
-    if (isLargeTablet(context)) {
-      return const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0);
-    } else if (isTablet(context)) {
-      return const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0);
-    } else {
-      return const EdgeInsets.all(16.0);
+      return 200.0;
     }
   }
 
@@ -93,16 +76,6 @@ class ResponsiveLayout {
     return !isTablet(context) && !isLargeTablet(context);
   }
 
-  /// 获取侧边栏宽度
-  static double getSidebarWidth(BuildContext context) {
-    if (isLargeTablet(context)) {
-      return 112.0; // 大平板：缩小后的侧边栏
-    } else if (isTablet(context)) {
-      return 96.0; // 平板：缩小后的侧边栏
-    } else {
-      return 0.0; // 手机：无侧边栏
-    }
-  }
 }
 
 /// 平板模式下的布局构建器

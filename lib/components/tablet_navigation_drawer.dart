@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 平板模式下的导航抽屉组件 - Generative风格设计
+/// 平板模式侧边导航栏 — 基于 Material 3 NavigationRail
 class TabletNavigationDrawer extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onIndexChanged;
@@ -13,146 +13,42 @@ class TabletNavigationDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          right: BorderSide(
-            color: theme.dividerColor,
-            width: 1,
-          ),
-        ),
+    return NavigationRail(
+      selectedIndex: currentIndex,
+      onDestinationSelected: onIndexChanged,
+      labelType: NavigationRailLabelType.all,
+      groupAlignment: 0.0,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      indicatorShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Column(
-          children: [
-            // 导航菜单 - 垂直居中
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildNavButton(
-                      context: context,
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home,
-                      label: '首页',
-                      index: 0,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildNavButton(
-                      context: context,
-                      icon: Icons.search_outlined,
-                      activeIcon: Icons.search,
-                      label: '搜索',
-                      index: 1,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildNavButton(
-                      context: context,
-                      icon: Icons.tag_outlined,
-                      activeIcon: Icons.tag,
-                      label: '标签',
-                      index: 2,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildNavButton(
-                      context: context,
-                      icon: Icons.history_outlined,
-                      activeIcon: Icons.history,
-                      label: '历史',
-                      index: 3,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+      destinations: const [
+        NavigationRailDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: Text('首页'),
         ),
-      ),
+        NavigationRailDestination(
+          icon: Icon(Icons.search_outlined),
+          selectedIcon: Icon(Icons.search),
+          label: Text('搜索'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.tag_outlined),
+          selectedIcon: Icon(Icons.tag),
+          label: Text('标签'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.history_outlined),
+          selectedIcon: Icon(Icons.history),
+          label: Text('历史'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings),
+          label: Text('设置'),
+        ),
+      ],
     );
   }
-
-
-  Widget _buildNavButton({
-    required BuildContext context,
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required int index,
-  }) {
-    final isActive = currentIndex == index;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => onIndexChanged(index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive
-                ? colorScheme.primary.withAlpha(20)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              // 左侧选中指示条
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                width: 3,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: isActive ? colorScheme.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(1.5),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // 图标和文字
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        isActive ? activeIcon : icon,
-                        key: ValueKey(isActive),
-                        color: isActive
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                        color: isActive
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
 }

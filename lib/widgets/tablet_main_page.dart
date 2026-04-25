@@ -49,7 +49,6 @@ class _TabletMainPageState extends State<TabletMainPage> {
     final currentMode = _themeManager.currentThemeMode;
     ThemeModeType nextMode;
 
-    // 三态循环切换：自动 → 浅色 → 深色 → 自动
     switch (currentMode) {
       case ThemeModeType.auto:
         nextMode = ThemeModeType.light;
@@ -93,49 +92,28 @@ class _TabletMainPageState extends State<TabletMainPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 如果是手机模式，使用原来的导航页面
     if (ResponsiveLayout.isMobile(context)) {
       return const MainNavigationPage();
     }
 
-    // 平板和桌面模式使用新的布局
     return Scaffold(
       body: Row(
         children: [
-          // 左侧导航栏
-          Container(
-            width: ResponsiveLayout.getSidebarWidth(context),
-            color: Theme.of(context).colorScheme.surface,
-            child: TabletNavigationDrawer(
-              currentIndex: _currentIndex,
-              onIndexChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-            ),
+          TabletNavigationDrawer(
+            currentIndex: _currentIndex,
+            onIndexChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
           ),
-          // 主内容区域
+          const VerticalDivider(thickness: 1, width: 1),
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  left: BorderSide(
-                    color: Theme.of(context).dividerColor,
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Column(
-                children: [
-                  // 顶部应用栏
-                  _buildAppBar(context),
-                  // 页面内容
-                  Expanded(
-                    child: _pages[_currentIndex],
-                  ),
-                ],
-              ),
+            child: Column(
+              children: [
+                _buildAppBar(context),
+                Expanded(child: _pages[_currentIndex]),
+              ],
             ),
           ),
         ],
@@ -150,7 +128,6 @@ class _TabletMainPageState extends State<TabletMainPage> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         children: [
-          // 应用标题
           Text(
             '嘿！——漫',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -159,21 +136,10 @@ class _TabletMainPageState extends State<TabletMainPage> {
             ),
           ),
           const Spacer(),
-          // 主题切换按钮
           IconButton(
             icon: _buildThemeIcon(),
             onPressed: _toggleTheme,
             tooltip: _buildThemeTooltip(),
-          ),
-          // 设置按钮 - 与手机模式保持一致
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              setState(() {
-                _currentIndex = 4; // 切换到设置页面
-              });
-            },
-            tooltip: '设置',
           ),
         ],
       ),
@@ -191,11 +157,12 @@ class ResponsiveMainPage extends StatelessWidget {
       builder: (context, screenSize) {
         switch (screenSize) {
           case ScreenSize.small:
-            // 手机模式 - 使用原来的导航页面
             return const MainNavigationPage();
           case ScreenSize.medium:
           case ScreenSize.large:
-            // 平板和桌面模式 - 使用新的平板布局
+            if (!ResponsiveLayout.isWideEnoughForRail(context)) {
+              return const MainNavigationPage();
+            }
             return const TabletMainPage();
         }
       },
