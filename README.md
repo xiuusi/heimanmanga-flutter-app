@@ -61,20 +61,24 @@ lib/
 │   ├── smart_preload_manager.dart     # 智能预加载管理器
 │   └── theme_manager.dart             # 主题管理器
 └── widgets/                           # 界面组件目录
-    ├── about_page.dart                # 关于页面
-    ├── carousel_widget.dart           # 轮播组件
-    ├── enhanced_reader_page.dart      # 增强版阅读器页面
-    ├── history_page.dart              # 历史记录页面
-    ├── loading_animations_simplified.dart  # 加载动画
-    ├── main_navigation_page.dart      # 主导航页面
-    ├── manga_detail_page.dart         # 漫画详情页面
-    ├── manga_list_page.dart           # 漫画列表页面
-    ├── page_transitions.dart          # 页面过渡动画
-    ├── pagination_widget.dart         # 分页组件
-    ├── search_page.dart               # 搜索页面
-    ├── settings_page.dart             # 设置页面
-    ├── tablet_main_page.dart          # 平板主页面
-    └── tags_page.dart                 # 标签页面
+    │   ├── about_page.dart                # 关于页面
+    │   ├── carousel_widget.dart           # 轮播组件
+    │   ├── enhanced_reader_page.dart      # 增强版阅读器页面
+    │   ├── history_page.dart              # 历史记录页面
+    │   ├── loading_animations_simplified.dart  # 加载动画
+    │   ├── main_navigation_page.dart      # 主导航页面
+    │   ├── manga_detail_page.dart         # 漫画详情页面
+    │   ├── manga_list_page.dart           # 漫画列表页面
+    │   ├── page_transitions.dart          # 页面过渡动画
+    │   ├── pagination_widget.dart         # 分页组件
+    │   ├── search_page.dart               # 搜索页面
+    │   ├── settings_page.dart             # 设置页面
+    │   ├── tablet_main_page.dart          # 平板主页面
+    │   ├── tags_page.dart                 # 标签页面
+    │   └── reader/                        # 阅读器子组件
+    │       ├── reader_controller.dart     # 阅读器状态管理(ChangeNotifier)
+    │       ├── reader_settings_panel.dart # 阅读设置面板
+    │       └── reader_chapter_end_page.dart # 章节结尾过渡页
 ```
 
 ### 🔧 技术栈
