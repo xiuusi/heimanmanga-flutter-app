@@ -343,45 +343,46 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildSectionTitle('通用'),
 
             Card(
-              child: ListTile(
-                leading: const Icon(Icons.info),
-                title: const Text('关于应用'),
-                subtitle: const Text('查看应用信息和版本'),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const AboutPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.update),
-                title: const Text('检查更新'),
-                subtitle: _updateStatus.isNotEmpty
-                    ? Text(
-                        _updateStatus,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.info),
+                    title: const Text('关于应用'),
+                    subtitle: const Text('查看应用信息和版本'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const AboutPage(),
                         ),
-                      )
-                    : null,
-                trailing: _isChecking
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: _checkForUpdates,
-                      ),
-                onTap: _isChecking ? null : _checkForUpdates,
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.update),
+                    title: const Text('检查更新'),
+                    subtitle: _updateStatus.isNotEmpty
+                        ? Text(
+                            _updateStatus,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                            ),
+                          )
+                        : null,
+                    trailing: _isChecking
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: _checkForUpdates,
+                          ),
+                    onTap: _isChecking ? null : _checkForUpdates,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
