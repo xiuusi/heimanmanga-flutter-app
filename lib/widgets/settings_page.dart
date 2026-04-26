@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'dart:convert';
 import 'about_page.dart';
-import '../services/api_service.dart';
 import '../services/dio_service.dart';
 import '../services/reading_progress_service.dart';
 import '../utils/theme_manager.dart';
@@ -425,10 +425,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String get _cacheSizeText {
-    final size = imageCache.currentSizeBytes;
-    if (size < 1024) return '$size B';
-    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
-    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+    final count = imageCache.currentSize;
+    final bytes = imageCache.currentSizeBytes;
+    if (bytes < 1024) return '${count}张 · $bytes B';
+    if (bytes < 1024 * 1024) return '${count}张 · ${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${count}张 · ${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   void _clearHistory() async {
@@ -460,13 +461,14 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  void _clearImageCache() {
+  void _clearImageCache() async {
     imageCache.clear();
     imageCache.clearLiveImages();
+    await DefaultCacheManager().emptyCache();
     if (mounted) {
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('图片缓存已清除')),
+        const SnackBar(content: Text('图片缓存已清除（内存 + 磁盘）')),
       );
     }
   }
