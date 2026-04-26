@@ -95,6 +95,7 @@ class ReaderSettingsPanel extends StatelessWidget {
                         _buildPageLayoutOption(context, '自动模式', PageLayout.auto),
                         const SizedBox(height: 12),
                         _buildToggleOption(
+                          context,
                           '启用页面移位',
                           controller.dualPageConfig.shiftDoublePage,
                           (value) {
@@ -115,6 +116,7 @@ class ReaderSettingsPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     _buildToggleOption(
+                      context,
                       '音量键翻页',
                       controller.volumeButtonNavigationEnabled,
                       controller.setVolumeButtonNavigation,
@@ -131,6 +133,8 @@ class ReaderSettingsPanel extends StatelessWidget {
 
   Widget _buildReadingDirectionOption(BuildContext context, String title, ReadingDirection direction) {
     final isSelected = controller.readingDirection == direction;
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
 
     return GestureDetector(
       onTap: () {
@@ -142,10 +146,10 @@ class ReaderSettingsPanel extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFF6B6B).withAlpha(51) : Colors.transparent,
+          color: isSelected ? primary.withAlpha(51) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? const Color(0xFFFF6B6B) : Colors.grey[700]!,
+            color: isSelected ? primary : Colors.grey[700]!,
             width: 1,
           ),
         ),
@@ -153,7 +157,7 @@ class ReaderSettingsPanel extends StatelessWidget {
           children: [
             Icon(
               isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: isSelected ? const Color(0xFFFF6B6B) : Colors.grey[500],
+              color: isSelected ? primary : Colors.grey[500],
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -173,6 +177,7 @@ class ReaderSettingsPanel extends StatelessWidget {
 
   Widget _buildPageLayoutOption(BuildContext context, String title, PageLayout layout) {
     final isSelected = controller.dualPageConfig.pageLayout == layout;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return GestureDetector(
       onTap: () {
@@ -185,10 +190,10 @@ class ReaderSettingsPanel extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFF6B6B).withAlpha(51) : Colors.transparent,
+          color: isSelected ? primary.withAlpha(51) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? const Color(0xFFFF6B6B) : Colors.grey[700]!,
+            color: isSelected ? primary : Colors.grey[700]!,
             width: 1,
           ),
         ),
@@ -196,7 +201,7 @@ class ReaderSettingsPanel extends StatelessWidget {
           children: [
             Icon(
               isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: isSelected ? const Color(0xFFFF6B6B) : Colors.grey[500],
+              color: isSelected ? primary : Colors.grey[500],
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -214,7 +219,8 @@ class ReaderSettingsPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildToggleOption(String title, bool value, ValueChanged<bool> onChanged) {
+  Widget _buildToggleOption(BuildContext context, String title, bool value, ValueChanged<bool> onChanged) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -236,8 +242,8 @@ class ReaderSettingsPanel extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: const Color(0xFFFF6B6B).withAlpha(128),
-            activeThumbColor: const Color(0xFFFF6B6B),
+            activeTrackColor: primary.withAlpha(128),
+            activeThumbColor: primary,
           ),
         ],
       ),

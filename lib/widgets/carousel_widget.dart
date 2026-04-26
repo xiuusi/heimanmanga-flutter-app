@@ -156,6 +156,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final isDesktop = screenWidth >= 800;
@@ -280,7 +281,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        hoverColor: const Color(0xFFFF6B6B).withOpacity(0.8),
+        hoverColor: Theme.of(context).colorScheme.primary.withOpacity(0.8),
         child: Container(
           width: 40, // 按钮从 48 改为 40
           height: 40,
@@ -397,7 +398,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
           width: isActive ? 24 : 6, // 指示器稍微变小
           height: 4,
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFFF6B6B) : Colors.grey.withOpacity(0.3),
+            color: isActive ? Theme.of(context).colorScheme.primary : Colors.grey.withOpacity(0.3),
             borderRadius: BorderRadius.circular(2),
           ),
         );
@@ -413,8 +414,8 @@ class CarouselWidgetState extends State<CarouselWidget> {
         color: Colors.grey[900],
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Center(
-        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B))),
+      child: Center(
+        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary)),
       ),
     );
   }
@@ -464,8 +465,8 @@ class CarouselWidgetState extends State<CarouselWidget> {
      showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B))),
+      builder: (context) => Center(
+        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary)),
       ),
     );
 

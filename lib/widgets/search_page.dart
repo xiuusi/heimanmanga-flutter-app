@@ -132,6 +132,7 @@ class _SearchPageState extends State<SearchPage>
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
@@ -145,8 +146,8 @@ class _SearchPageState extends State<SearchPage>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    const Color(0xFFFF6B6B),
-                    const Color(0xFFFF6B6B).withOpacity(0.8),
+                    primary,
+                    primary.withOpacity(0.8),
                   ],
                 ),
               ),
@@ -249,7 +250,7 @@ class _SearchPageState extends State<SearchPage>
                                 backgroundColor: Colors.white.withOpacity(0.3),
                                 selectedColor: Colors.white,
                                 labelStyle: TextStyle(
-                                  color: isSelected ? const Color(0xFFFF6B6B) : Colors.white.withOpacity(0.95),
+                                  color: isSelected ? primary : Colors.white.withOpacity(0.95),
                                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                   shadows: [
                                     Shadow(
@@ -302,12 +303,12 @@ class _SearchPageState extends State<SearchPage>
 
             // 搜索结果网格
             if (_isLoading)
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Center(
                   child: Padding(
                     padding: EdgeInsets.all(50),
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+                      valueColor: AlwaysStoppedAnimation<Color>(primary),
                     ),
                   ),
                 ),
@@ -357,11 +358,11 @@ class _SearchPageState extends State<SearchPage>
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       if (index == _searchResults.length && _isLoadingMore) {
-                        return const Center(
+                        return Center(
                           child: Padding(
                             padding: EdgeInsets.all(16),
                             child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+                              valueColor: AlwaysStoppedAnimation<Color>(primary),
                             ),
                           ),
                         );

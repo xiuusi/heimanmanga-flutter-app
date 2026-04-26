@@ -19,8 +19,12 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
   }
 
   ThemeModeType _currentThemeMode = ThemeModeType.auto;
+  Color _accentColor = const Color(0xFFFF6B6B);
+  bool _useDynamicColor = true;
 
   ThemeModeType get currentThemeMode => _currentThemeMode;
+  Color get accentColor => _accentColor;
+  bool get useDynamicColor => _useDynamicColor;
 
   bool get isDarkMode {
     if (_currentThemeMode == ThemeModeType.auto) {
@@ -32,7 +36,6 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
 
   @override
   void didChangePlatformBrightness() {
-    // 当系统主题改变时，如果当前是自动模式，则通知监听器更新
     if (_currentThemeMode == ThemeModeType.auto) {
       notifyListeners();
     }
@@ -42,8 +45,20 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
     _currentThemeMode = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('theme_mode', mode.index);
-    
-    // 使用 Future.microtask 延迟通知，避免在构建过程中通知
+    Future.microtask(() => notifyListeners());
+  }
+
+  Future<void> setAccentColor(Color color) async {
+    _accentColor = color;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('accent_color', color.value);
+    Future.microtask(() => notifyListeners());
+  }
+
+  Future<void> setUseDynamicColor(bool useDynamic) async {
+    _useDynamicColor = useDynamic;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('use_dynamic_color', useDynamic);
     Future.microtask(() => notifyListeners());
   }
 
@@ -53,7 +68,17 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
     if (savedMode != null && savedMode >= 0 && savedMode < ThemeModeType.values.length) {
       _currentThemeMode = ThemeModeType.values[savedMode];
     }
-    // 使用 Future.microtask 延迟通知
+
+    final savedColor = prefs.getInt('accent_color');
+    if (savedColor != null) {
+      _accentColor = Color(savedColor);
+    }
+
+    final savedDynamic = prefs.getBool('use_dynamic_color');
+    if (savedDynamic != null) {
+      _useDynamicColor = savedDynamic;
+    }
+
     Future.microtask(() => notifyListeners());
   }
 

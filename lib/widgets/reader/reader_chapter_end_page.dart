@@ -26,6 +26,8 @@ class ReaderChapterEndPage extends StatelessWidget {
     final bool hasNextChapter = currentChapterIndex < chapters.length - 1;
     final Chapter? nextChapter = hasNextChapter ? chapters[currentChapterIndex + 1] : null;
 
+    final primary = Theme.of(context).colorScheme.primary;
+
     return Container(
       color: Colors.black,
       child: Center(
@@ -34,7 +36,7 @@ class ReaderChapterEndPage extends StatelessWidget {
           children: [
             Icon(
               isLastChapter ? Icons.check_circle : Icons.arrow_forward,
-              color: const Color(0xFFFF6B6B),
+              color: primary,
               size: 64,
             ),
             const SizedBox(height: 24),
@@ -78,7 +80,7 @@ class ReaderChapterEndPage extends StatelessWidget {
               ElevatedButton(
                 onPressed: onNextChapter,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6B6B),
+                  backgroundColor: primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   shape: RoundedRectangleBorder(

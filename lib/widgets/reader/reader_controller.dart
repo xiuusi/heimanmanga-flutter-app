@@ -189,7 +189,7 @@ class ReaderController extends ChangeNotifier {
               hasShownJumpPrompt = true;
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6B6B),
+              backgroundColor: Theme.of(ctx).colorScheme.primary,
             ),
             child: const Text('跳转'),
           ),
@@ -541,7 +541,7 @@ class ReaderController extends ChangeNotifier {
             children: [
               Icon(
                 onConfirm != null ? Icons.arrow_forward : Icons.check,
-                color: const Color(0xFFFF6B6B),
+                color: Theme.of(ctx).colorScheme.primary,
                 size: 48,
               ),
               const SizedBox(height: 16),
@@ -581,7 +581,7 @@ class ReaderController extends ChangeNotifier {
                     onConfirm();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6B6B),
+                    backgroundColor: Theme.of(ctx).colorScheme.primary,
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('前往下一章'),
@@ -594,7 +594,7 @@ class ReaderController extends ChangeNotifier {
                     Navigator.of(ctx).pop();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6B6B),
+                    backgroundColor: Theme.of(ctx).colorScheme.primary,
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('退出观看'),

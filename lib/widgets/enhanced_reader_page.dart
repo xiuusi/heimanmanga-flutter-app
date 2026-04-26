@@ -160,17 +160,18 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   Widget _buildLoadingState() {
-    return const Scaffold(
+    final primary = Theme.of(context).colorScheme.primary;
+    return Scaffold(
       backgroundColor: Colors.black,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+              valueColor: AlwaysStoppedAnimation<Color>(primary),
             ),
-            SizedBox(height: 20),
-            Text(
+            const SizedBox(height: 20),
+            const Text(
               '正在加载章节...',
               style: TextStyle(color: Colors.white, fontSize: 16),
             ),
@@ -181,13 +182,14 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   Widget _buildErrorState() {
+    final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: 60),
+            Icon(Icons.error_outline, color: primary, size: 60),
             const SizedBox(height: 20),
             Text(
               _controller.errorMessage!,
@@ -198,7 +200,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
             ElevatedButton(
               onPressed: () => _controller.loadChapterImages(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6B6B),
+                backgroundColor: primary,
                 foregroundColor: Colors.white,
               ),
               child: const Text('重试'),
@@ -210,17 +212,18 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   Widget _buildLoadingOverlay() {
+    final primary = Theme.of(context).colorScheme.primary;
     return Container(
       color: Colors.black54,
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+              valueColor: AlwaysStoppedAnimation<Color>(primary),
             ),
-            SizedBox(height: 20),
-            Text(
+            const SizedBox(height: 20),
+            const Text(
               '正在加载下一章...',
               style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             ),
@@ -340,21 +343,21 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       fit: isDoublePageImage ? BoxFit.fitWidth : BoxFit.contain,
       placeholder: (context, url) => Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B6B)),
+            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
           ),
         ),
       ),
       errorWidget: (context, url, error) => Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: 50),
-              SizedBox(height: 10),
-              Text('图片加载失败', style: TextStyle(color: Colors.white)),
+              Icon(Icons.error_outline, color: Theme.of(context).colorScheme.primary, size: 50),
+              const SizedBox(height: 10),
+              const Text('图片加载失败', style: TextStyle(color: Colors.white)),
             ],
           ),
         ),
@@ -519,6 +522,7 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   Widget _buildBottomControls() {
+    final primary = Theme.of(context).colorScheme.primary;
     return AnimatedBuilder(
       animation: _controlsAnimationController,
       builder: (context, child) {
@@ -547,10 +551,10 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
               children: [
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: const Color(0xFFFF6B6B),
+                    activeTrackColor: primary,
                     inactiveTrackColor: Colors.grey[600],
-                    thumbColor: const Color(0xFFFF6B6B),
-                    overlayColor: const Color(0xFFFF6B6B).withAlpha(51),
+                    thumbColor: primary,
+                    overlayColor: primary.withAlpha(51),
                     trackHeight: 4.0,
                   ),
                   child: Slider(

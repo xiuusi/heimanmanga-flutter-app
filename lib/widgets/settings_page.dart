@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'about_page.dart';
 import '../services/api_service.dart';
 import '../services/dio_service.dart';
+import '../utils/theme_manager.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -15,10 +16,43 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  final ThemeManager _themeManager = ThemeManager();
+
   bool _isChecking = false;
   String _updateStatus = '';
   String? _latestVersion;
   String? _releaseUrl;
+
+  static const _presetColors = [
+    Color(0xFFFF6B6B),
+    Color(0xFFE53935),
+    Color(0xFFFF9800),
+    Color(0xFFFFC107),
+    Color(0xFF4CAF50),
+    Color(0xFF00BCD4),
+    Color(0xFF2196F3),
+    Color(0xFF3F51B5),
+    Color(0xFF9C27B0),
+    Color(0xFFE91E63),
+    Color(0xFF795548),
+    Color(0xFF607D8B),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _themeManager.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    _themeManager.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() {
+    setState(() {});
+  }
 
   Future<void> _checkForUpdates() async {
     setState(() {
@@ -27,7 +61,6 @@ class _SettingsPageState extends State<SettingsPage> {
     });
 
     try {
-      // 动态获取应用版本信息
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
 
@@ -48,7 +81,6 @@ class _SettingsPageState extends State<SettingsPage> {
             _releaseUrl = latestRelease['html_url'] as String;
           });
 
-          // 简单版本比较（移除可能的'v'前缀）
           final currentVersionClean = currentVersion.replaceAll('v', '');
           final latestVersionClean = latestVersion.replaceAll('v', '');
 
@@ -85,7 +117,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   bool _isNewerVersion(String latest, String current) {
-    // 简单的版本号比较，将版本号拆分为数字部分
     final latestParts = latest.split('.').map((part) {
       final match = RegExp(r'\d+').firstMatch(part);
       return match != null ? int.parse(match.group(0)!) : 0;
@@ -96,7 +127,6 @@ class _SettingsPageState extends State<SettingsPage> {
       return match != null ? int.parse(match.group(0)!) : 0;
     }).toList();
 
-    // 比较每个部分
     for (int i = 0; i < latestParts.length; i++) {
       final latestPart = i < latestParts.length ? latestParts[i] : 0;
       final currentPart = i < currentParts.length ? currentParts[i] : 0;
@@ -148,20 +178,125 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  void _showCustomColorDialog() {
+    Color pickedColor = _themeManager.accentColor;
+    double hue = HSVColor.fromColor(pickedColor).hue;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final currentColor = HSLColor.fromAHSL(1, hue, 1, 0.5).toColor();
+            return AlertDialog(
+              title: const Text('自定义主题色'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: currentColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('色相', style: Theme.of(ctx).textTheme.bodySmall),
+                  Slider(
+                    value: hue,
+                    min: 0,
+                    max: 360,
+                    divisions: 360,
+                    activeColor: currentColor,
+                    onChanged: (v) {
+                      setDialogState(() {
+                        hue = v;
+                        pickedColor = HSLColor.fromAHSL(1, hue, 1, 0.5).toColor();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '#${pickedColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 16),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    _themeManager.setAccentColor(pickedColor);
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('设置'),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        foregroundColor: theme.appBarTheme.foregroundColor,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 关于应用卡片
+            _buildSectionTitle('主题'),
+            Card(
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('跟随系统主题色'),
+                    subtitle: const Text('在 Android 12+ 上提取壁纸颜色'),
+                    value: _themeManager.useDynamicColor,
+                    activeColor: _themeManager.accentColor,
+                    onChanged: _themeManager.setUseDynamicColor,
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('自定义主题色', style: TextStyle(fontSize: 14)),
+                        const SizedBox(height: 12),
+                        _buildColorGrid(),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _showCustomColorDialog,
+                            icon: const Icon(Icons.colorize, size: 18),
+                            label: const Text('更多颜色...'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+            _buildSectionTitle('通用'),
+
             Card(
               child: ListTile(
                 leading: const Icon(Icons.info),
@@ -179,7 +314,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 16),
 
-            // 检查更新卡片
             Card(
               child: ListTile(
                 leading: const Icon(Icons.update),
@@ -220,5 +354,57 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.primary,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorGrid() {
+    final currentColor = _themeManager.accentColor;
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _presetColors.map((color) {
+        final isSelected = color.value == currentColor.value;
+        return GestureDetector(
+          onTap: () => _themeManager.setAccentColor(color),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: isSelected
+                  ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2.5)
+                  : Border.all(color: Colors.transparent, width: 2.5),
+              boxShadow: isSelected
+                  ? [BoxShadow(color: color.withAlpha(128), blurRadius: 6)]
+                  : null,
+            ),
+            child: isSelected
+                ? Icon(Icons.check, color: _contrastText(color), size: 20)
+                : null,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Color _contrastText(Color background) {
+    final luminance = background.computeLuminance();
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 }

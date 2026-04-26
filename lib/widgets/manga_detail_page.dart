@@ -236,7 +236,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                       });
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF6B6B),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                     ),
                     child: const Text('重试'),
@@ -305,7 +305,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                 child: ElevatedButton(
                   onPressed: _targetChapterId.isNotEmpty ? () => _handleReadButtonTap() : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6B6B),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24.0),
@@ -465,10 +465,10 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: _getTagColor(namespace).withAlpha(26), // 0.1 * 255 ≈ 26
+                      color: _getTagColor(context, namespace).withAlpha(26), // 0.1 * 255 ≈ 26
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _getTagColor(namespace).withAlpha(77), // 0.3 * 255 ≈ 77
+                        color: _getTagColor(context, namespace).withAlpha(77), // 0.3 * 255 ≈ 77
                         width: 1,
                       ),
                     ),
@@ -476,7 +476,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                       tag.name,
                       style: TextStyle(
                         fontSize: 12,
-                        color: _getTagColor(namespace),
+                        color: _getTagColor(context, namespace),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -504,7 +504,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
   }
 
   // 根据命名空间获取标签颜色
-  Color _getTagColor(String namespace) {
+  Color _getTagColor(BuildContext context, String namespace) {
     switch (namespace) {
       case 'type':
         return const Color(0xFF1565C0); // 蓝色
@@ -515,7 +515,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
       case 'sub':
         return const Color(0xFF757575); // 灰色
       default:
-        return const Color(0xFFFF6B6B); // 默认红色
+        return Theme.of(context).colorScheme.primary;
     }
   }
 
@@ -610,7 +610,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                       leading: CircleAvatar(
                         backgroundColor: isChapterRead
                             ? Colors.green
-                            : const Color(0xFFFF6B6B),
+                            : Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
                         child: Text(
                           '${chapter.number}',
@@ -903,7 +903,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                   leading: CircleAvatar(
                     backgroundColor: isChapterRead
                         ? Colors.green
-                        : const Color(0xFFFF6B6B),
+                        : Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     radius: 16,
                     child: Text(

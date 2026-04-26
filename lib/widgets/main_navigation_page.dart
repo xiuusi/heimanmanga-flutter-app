@@ -186,6 +186,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     final isActive = _currentIndex == index;
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
 
     return GestureDetector(
       onTap: () {
@@ -199,7 +200,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFFF6B6B).withOpacity(0.1) : Colors.transparent,
+          color: isActive ? primary.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -211,7 +212,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
                 isActive ? activeIcon : icon,
                 key: ValueKey(isActive),
                 color: isActive
-                  ? const Color(0xFFFF6B6B)
+                  ? primary
                   : isDarkMode
                     ? const Color(0xFFBBBBBB)
                     : Colors.grey[600],
@@ -223,7 +224,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
               duration: const Duration(milliseconds: 200),
               style: TextStyle(
                 color: isActive
-                  ? const Color(0xFFFF6B6B)
+                  ? primary
                   : isDarkMode
                     ? const Color(0xFFBBBBBB)
                     : Colors.grey[600],

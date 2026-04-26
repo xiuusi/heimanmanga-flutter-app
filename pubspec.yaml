@@ -10,6 +10,7 @@ dependencies:
     sdk: flutter
   dio: ^5.0.0
   cached_network_image: ^3.3.0
+  dynamic_color: ^1.7.1
   # Web optimizations
   flutter_web_plugins:
     sdk: flutter

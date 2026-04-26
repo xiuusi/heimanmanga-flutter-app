@@ -21,6 +21,8 @@ class PaginationWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (totalPages <= 1) return const SizedBox.shrink();
 
+    final primary = Theme.of(context).colorScheme.primary;
+
     return Container(
       color: Theme.of(context).cardTheme.color,
       padding: const EdgeInsets.all(16),
@@ -44,17 +46,17 @@ class PaginationWidget extends StatelessWidget {
               IconButton(
                 onPressed: currentPage > 1 ? () => onPageChanged(currentPage - 1) : null,
                 icon: const Icon(Icons.chevron_left),
-                color: currentPage > 1 ? const Color(0xFFFF6B6B) : Colors.grey,
+                color: currentPage > 1 ? primary : Colors.grey,
               ),
 
               // 页码按钮
-              _buildPageButtons(currentPage, totalPages, onPageChanged),
+              _buildPageButtons(context, currentPage, totalPages, onPageChanged),
 
               // 下一页按钮
               IconButton(
                 onPressed: currentPage < totalPages ? () => onPageChanged(currentPage + 1) : null,
                 icon: const Icon(Icons.chevron_right),
-                color: currentPage < totalPages ? const Color(0xFFFF6B6B) : Colors.grey,
+                color: currentPage < totalPages ? primary : Colors.grey,
               ),
             ],
           ),
@@ -64,7 +66,7 @@ class PaginationWidget extends StatelessWidget {
   }
 
   /// 构建页码按钮
-  Widget _buildPageButtons(int currentPage, int totalPages, ValueChanged<int> onPageChanged) {
+  Widget _buildPageButtons(BuildContext context, int currentPage, int totalPages, ValueChanged<int> onPageChanged) {
     List<Widget> buttons = [];
 
     // 计算显示的页码范围
@@ -82,7 +84,7 @@ class PaginationWidget extends StatelessWidget {
 
     // 添加第一页
     if (startPage > 1) {
-      buttons.add(_buildPageButton(1, currentPage, onPageChanged));
+      buttons.add(_buildPageButton(context, 1, currentPage, onPageChanged));
       if (startPage > 2) {
         buttons.add(const Text(' ... ', style: TextStyle(color: Colors.grey)));
       }
@@ -90,7 +92,7 @@ class PaginationWidget extends StatelessWidget {
 
     // 添加中间页码
     for (int i = startPage; i <= endPage; i++) {
-      buttons.add(_buildPageButton(i, currentPage, onPageChanged));
+      buttons.add(_buildPageButton(context, i, currentPage, onPageChanged));
     }
 
     // 添加最后一页
@@ -98,7 +100,7 @@ class PaginationWidget extends StatelessWidget {
       if (endPage < totalPages - 1) {
         buttons.add(const Text(' ... ', style: TextStyle(color: Colors.grey)));
       }
-      buttons.add(_buildPageButton(totalPages, currentPage, onPageChanged));
+      buttons.add(_buildPageButton(context, totalPages, currentPage, onPageChanged));
     }
 
     return Row(
@@ -108,8 +110,9 @@ class PaginationWidget extends StatelessWidget {
   }
 
   /// 构建单个页码按钮
-  Widget _buildPageButton(int pageNumber, int currentPage, ValueChanged<int> onPageChanged) {
+  Widget _buildPageButton(BuildContext context, int pageNumber, int currentPage, ValueChanged<int> onPageChanged) {
     final isActive = pageNumber == currentPage;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -119,16 +122,16 @@ class PaginationWidget extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFFF6B6B) : Colors.transparent,
+            color: isActive ? primary : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: isActive ? const Color(0xFFFF6B6B) : Colors.grey[300]!,
+              color: isActive ? primary : Colors.grey[300]!,
             ),
           ),
           child: Text(
             '$pageNumber',
             style: TextStyle(
-              color: isActive ? Colors.white : (pageNumber == currentPage ? const Color(0xFFFF6B6B) : Colors.black87),
+              color: isActive ? Colors.white : (pageNumber == currentPage ? primary : Colors.black87),
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
           ),

@@ -287,6 +287,7 @@ class _TagsPageState extends State<TagsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
@@ -317,7 +318,7 @@ class _TagsPageState extends State<TagsPage> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: '搜索标签...',
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFFFF6B6B)),
+                  prefixIcon: Icon(Icons.search, color: primary),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear),
@@ -361,7 +362,7 @@ class _TagsPageState extends State<TagsPage> {
                         selected: isSelected,
                         onSelected: (_) => _selectNamespace(namespace),
                         backgroundColor: Colors.grey[200],
-                        selectedColor: const Color(0xFFFF6B6B),
+                        selectedColor: primary,
                         labelStyle: TextStyle(
                           color: isSelected ? Colors.white : Colors.black87,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -397,7 +398,7 @@ class _TagsPageState extends State<TagsPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFFFF6B6B)
+                              ? primary
                               : _getTagColor(tag.namespaceName),
                           borderRadius: BorderRadius.circular(20),
                           border: isSelected
