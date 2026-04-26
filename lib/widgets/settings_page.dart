@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'dart:convert';
 import 'about_page.dart';
 import '../services/dio_service.dart';
@@ -23,6 +25,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _updateStatus = '';
   String? _latestVersion;
   String? _releaseUrl;
+  int _diskCacheBytes = 0;
 
   static const _presetColors = [
     Color(0xFFFF6B6B),
@@ -43,6 +46,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _themeManager.addListener(_onThemeChanged);
+    _calculateDiskCache();
   }
 
   @override
@@ -424,12 +428,30 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _calculateDiskCache() async {
+    try {
+      final tmpDir = await getTemporaryDirectory();
+      final cacheDir = Directory('${tmpDir.path}/libCachedImageData');
+      var total = 0;
+      if (await cacheDir.exists()) {
+        await for (final entity in cacheDir.list(recursive: true)) {
+          if (entity is File) {
+            total += await entity.length();
+          }
+        }
+      }
+      if (mounted) {
+        setState(() => _diskCacheBytes = total);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   String get _cacheSizeText {
-    final count = imageCache.currentSize;
-    final bytes = imageCache.currentSizeBytes;
-    if (bytes < 1024) return '${count}张 · $bytes B';
-    if (bytes < 1024 * 1024) return '${count}张 · ${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${count}张 · ${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (_diskCacheBytes < 1024) return '${_diskCacheBytes} B';
+    if (_diskCacheBytes < 1024 * 1024) return '${(_diskCacheBytes / 1024).toStringAsFixed(1)} KB';
+    return '${(_diskCacheBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   void _clearHistory() async {
@@ -465,6 +487,7 @@ class _SettingsPageState extends State<SettingsPage> {
     imageCache.clear();
     imageCache.clearLiveImages();
     await DefaultCacheManager().emptyCache();
+    await _calculateDiskCache();
     if (mounted) {
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
