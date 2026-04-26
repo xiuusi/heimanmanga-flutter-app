@@ -21,10 +21,12 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
   ThemeModeType _currentThemeMode = ThemeModeType.auto;
   Color _accentColor = const Color(0xFFFF6B6B);
   bool _useDynamicColor = true;
+  bool _usePureBlack = false;
 
   ThemeModeType get currentThemeMode => _currentThemeMode;
   Color get accentColor => _accentColor;
   bool get useDynamicColor => _useDynamicColor;
+  bool get usePureBlack => _usePureBlack;
 
   bool get isDarkMode {
     if (_currentThemeMode == ThemeModeType.auto) {
@@ -62,6 +64,13 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
     Future.microtask(() => notifyListeners());
   }
 
+  Future<void> setUsePureBlack(bool value) async {
+    _usePureBlack = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('use_pure_black', value);
+    Future.microtask(() => notifyListeners());
+  }
+
   Future<void> loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
     final savedMode = prefs.getInt('theme_mode');
@@ -77,6 +86,11 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
     final savedDynamic = prefs.getBool('use_dynamic_color');
     if (savedDynamic != null) {
       _useDynamicColor = savedDynamic;
+    }
+
+    final savedPureBlack = prefs.getBool('use_pure_black');
+    if (savedPureBlack != null) {
+      _usePureBlack = savedPureBlack;
     }
 
     Future.microtask(() => notifyListeners());

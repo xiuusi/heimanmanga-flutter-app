@@ -65,13 +65,14 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
   Widget build(BuildContext context) {
     final isDarkMode = _themeManager.isDarkMode;
     final accentColor = _themeManager.accentColor;
+    final usePureBlack = _themeManager.usePureBlack;
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         return MaterialApp(
           title: '嘿！——漫',
           theme: _buildLightTheme(accentColor, lightDynamic),
-          darkTheme: _buildDarkTheme(accentColor, darkDynamic),
+          darkTheme: _buildDarkTheme(accentColor, darkDynamic, usePureBlack),
           themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
           home: const ResponsiveMainPage(),
           debugShowCheckedModeBanner: false,
@@ -170,16 +171,19 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
     );
   }
 
-  ThemeData _buildDarkTheme(Color accentColor, ColorScheme? dynamicScheme) {
+  ThemeData _buildDarkTheme(Color accentColor, ColorScheme? dynamicScheme, bool usePureBlack) {
     final colorScheme = _resolveColorScheme(accentColor, Brightness.dark, dynamicScheme);
+    final bg = usePureBlack ? Colors.black : const Color(0xFF121212);
+    final surface = usePureBlack ? const Color(0xFF0D0D0D) : const Color(0xFF1E1E1E);
+    final inputBg = usePureBlack ? const Color(0xFF1A1A1A) : const Color(0xFF2D2D2D);
 
     return ThemeData(
       colorScheme: colorScheme,
       primaryColor: accentColor,
-      scaffoldBackgroundColor: const Color(0xFF121212),
+      scaffoldBackgroundColor: bg,
 
       appBarTheme: AppBarTheme(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: surface,
         foregroundColor: Colors.white,
         elevation: 1,
         centerTitle: false,
@@ -191,7 +195,7 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
       ),
 
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: surface,
         selectedItemColor: accentColor,
         unselectedItemColor: const Color(0xFF888888),
       ),
@@ -203,7 +207,7 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
           borderRadius: BorderRadius.circular(12),
         ),
         clipBehavior: Clip.antiAlias,
-        color: const Color(0xFF1E1E1E),
+        color: surface,
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -219,7 +223,7 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF2D2D2D),
+        fillColor: inputBg,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(25),
           borderSide: BorderSide.none,
