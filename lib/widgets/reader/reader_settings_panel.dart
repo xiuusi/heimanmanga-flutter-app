@@ -104,6 +104,21 @@ class ReaderSettingsPanel extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      '操作',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildToggleOption(
+                      '音量键翻页',
+                      controller.volumeButtonNavigationEnabled,
+                      controller.setVolumeButtonNavigation,
+                    ),
                   ],
                 ),
               ),

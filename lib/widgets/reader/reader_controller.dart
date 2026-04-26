@@ -653,6 +653,15 @@ class ReaderController extends ChangeNotifier {
     }
   }
 
+  void setVolumeButtonNavigation(bool enabled) {
+    volumeButtonNavigationEnabled = enabled;
+    if (enabled) {
+      setupVolumeKeyListener();
+    }
+    enableVolumeKeyInterception(enabled);
+    notifyListeners();
+  }
+
   void showSettings() {
     HapticFeedbackManager.mediumImpact();
     settingsAnimationController?.forward();
