@@ -297,11 +297,19 @@ class DriftReadingProgressManager implements ReadingProgressManager {
   Future<void> clearAllHistory() async {
     await init();
 
-    // 删除所有章节进度记录
     await _database!.delete(_database!.chapterProgresses).go();
-
-    // 删除所有漫画进度记录
     await _database!.delete(_database!.mangaProgresses).go();
+  }
+
+  /// 删除单条漫画阅读历史
+  Future<void> deleteMangaProgress(String mangaId) async {
+    await init();
+    await (_database!.delete(_database!.chapterProgresses)
+          ..where((tbl) => tbl.mangaId.equals(mangaId)))
+        .go();
+    await (_database!.delete(_database!.mangaProgresses)
+          ..where((tbl) => tbl.mangaId.equals(mangaId)))
+        .go();
   }
 
   /// 关闭数据库

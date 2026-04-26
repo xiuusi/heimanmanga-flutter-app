@@ -88,9 +88,9 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
       // 计算偏移量：加载更多时使用当前已加载数量作为偏移量
       final offset = loadMore ? _loadedCount : 0;
       final limit = _pageSize;
-      print('Loading history: loadMore=$loadMore, offset=$offset, limit=$limit');
+      debugPrint('Loading history: loadMore=$loadMore, offset=$offset, limit=$limit');
       final recentRead = await _progressService.getRecentRead(limit: limit, offset: offset);
-      print('Loaded ${recentRead.length} history records');
+      debugPrint('Loaded ${recentRead.length} history records');
 
       if (loadMore) {
         setState(() {
@@ -101,7 +101,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
 
           // 如果加载的数据少于_pageSize，说明已经到达末尾
           _hasReachedEnd = recentRead.length < _pageSize;
-          print('Loaded more: ${recentRead.length} new items, total: $_loadedCount, reached end: $_hasReachedEnd');
+          debugPrint('Loaded more: ${recentRead.length} new items, total: $_loadedCount, reached end: $_hasReachedEnd');
         });
       } else {
         // 立即显示历史记录列表，不等待漫画详情
@@ -110,7 +110,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
           _loadedCount = recentRead.length;
           _isLoading = false;
           _hasReachedEnd = recentRead.length < _pageSize;
-          print('Initial load: ${recentRead.length} items, reached end: $_hasReachedEnd');
+          debugPrint('Initial load: ${recentRead.length} items, reached end: $_hasReachedEnd');
         });
       }
 
@@ -120,12 +120,41 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
       // 预加载图片（不等待完成，提升用户体验）
       _preloadImages(recentRead);
     } catch (e) {
-      print('Failed to load history: $e');
+      debugPrint('Failed to load history: $e');
       setState(() {
         _isLoading = false;
         _isLoadingMore = false;
       });
     }
+  }
+
+  Future<void> _deleteHistoryItem(String mangaId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除历史记录'),
+        content: const Text('确定要删除这条阅读历史吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await _progressService.deleteMangaProgress(mangaId);
+    setState(() {
+      _historyList.removeWhere((p) => p.mangaId == mangaId);
+      _mangaCache.remove(mangaId);
+      _loadedCount = _historyList.length;
+    });
   }
 
   void _loadMangaDetailsInParallel(List<ReadingProgress> recentRead) {
@@ -155,7 +184,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
         });
       }
     } catch (e) {
-      print('Failed to load manga details for $mangaId: $e');
+      debugPrint('Failed to load manga details for $mangaId: $e');
     }
   }
 
@@ -186,7 +215,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
         }
       }
     } catch (e) {
-      print('Failed to get manga from local database: $e');
+      debugPrint('Failed to get manga from local database: $e');
     }
     return null;
   }
@@ -534,7 +563,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                             scrollInfo.metrics.maxScrollExtent > 0;
 
                         if (shouldLoadMore) {
-                          print('Scrolling near bottom: pixels=${scrollInfo.metrics.pixels}, maxScrollExtent=${scrollInfo.metrics.maxScrollExtent}, threshold=$threshold, reachedEnd=$_hasReachedEnd');
+                          debugPrint('Scrolling near bottom: pixels=${scrollInfo.metrics.pixels}, maxScrollExtent=${scrollInfo.metrics.maxScrollExtent}, threshold=$threshold, reachedEnd=$_hasReachedEnd');
                           _loadHistory(loadMore: true);
                           return true;
                         }
@@ -578,9 +607,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                               progress: progress,
                               manga: manga,
                               onContinue: () => _continueReading(progress),
-                              onDelete: () {
-                                // TODO: 实现删除功能
-                              },
+                              onDelete: () => _deleteHistoryItem(progress.mangaId),
                             );
                           }
 

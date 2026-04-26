@@ -79,6 +79,9 @@ abstract class ReadingProgressManager {
 
   /// 检查漫画是否有阅读进度
   Future<bool> hasProgress(String mangaId);
+
+  /// 删除单条漫画阅读历史
+  Future<void> deleteMangaProgress(String mangaId);
 }
 
 /// 全局阅读进度管理器实例
@@ -171,6 +174,13 @@ class ReadingProgressService {
   Future<void> clearAllHistory() async {
     if (_manager is DriftReadingProgressManager) {
       await (_manager as DriftReadingProgressManager).clearAllHistory();
+    }
+  }
+
+  /// 删除单条漫画阅读历史
+  Future<void> deleteMangaProgress(String mangaId) async {
+    if (_manager is DriftReadingProgressManager) {
+      await (_manager as DriftReadingProgressManager).deleteMangaProgress(mangaId);
     }
   }
 

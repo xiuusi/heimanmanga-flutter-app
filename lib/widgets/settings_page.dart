@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'about_page.dart';
 import '../services/api_service.dart';
 import '../services/dio_service.dart';
+import '../services/reading_progress_service.dart';
 import '../utils/theme_manager.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -258,6 +259,38 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildSectionTitle('显示'),
+            Card(
+              child: Column(
+                children: [
+                  RadioListTile<ThemeModeType>(
+                    title: const Text('跟随系统'),
+                    value: ThemeModeType.auto,
+                    groupValue: _themeManager.currentThemeMode,
+                    activeColor: _themeManager.accentColor,
+                    onChanged: (v) { if (v != null) _themeManager.setThemeMode(v); },
+                  ),
+                  const Divider(height: 1),
+                  RadioListTile<ThemeModeType>(
+                    title: const Text('浅色模式'),
+                    value: ThemeModeType.light,
+                    groupValue: _themeManager.currentThemeMode,
+                    activeColor: _themeManager.accentColor,
+                    onChanged: (v) { if (v != null) _themeManager.setThemeMode(v); },
+                  ),
+                  const Divider(height: 1),
+                  RadioListTile<ThemeModeType>(
+                    title: const Text('深色模式'),
+                    value: ThemeModeType.dark,
+                    groupValue: _themeManager.currentThemeMode,
+                    activeColor: _themeManager.accentColor,
+                    onChanged: (v) { if (v != null) _themeManager.setThemeMode(v); },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
             _buildSectionTitle('主题'),
             Card(
               child: Column(
@@ -350,10 +383,84 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ),
+
+            const SizedBox(height: 16),
+            _buildSectionTitle('数据'),
+
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.delete_sweep),
+                    title: const Text('清除阅读历史'),
+                    subtitle: const Text('删除所有阅读进度记录'),
+                    onTap: _clearHistory,
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.cached),
+                    title: const Text('清除图片缓存'),
+                    subtitle: const Text('释放存储空间'),
+                    trailing: Text(
+                      _cacheSizeText,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    onTap: _clearImageCache,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  String get _cacheSizeText {
+    final size = imageCache.currentSizeBytes;
+    if (size < 1024) return '$size B';
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
+    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  void _clearHistory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清除阅读历史'),
+        content: const Text('确定要删除所有阅读进度记录吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('清除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await ReadingProgressService().clearAllHistory();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('阅读历史已清除')),
+      );
+    }
+  }
+
+  void _clearImageCache() {
+    imageCache.clear();
+    imageCache.clearLiveImages();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('图片缓存已清除')),
+      );
+    }
   }
 
   Widget _buildSectionTitle(String title) {
