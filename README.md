@@ -13,7 +13,7 @@
 
 这是一个完全使用AI辅助AI来开发的Flutter漫画阅读应用，作为配套应用与[漫画网站](https://www.heiman.cc)
 
-**开发工具**:   主要使用的是vscode+Claude code/deepseek 
+**开发工具**:  opencode + deepseek v4 pro/flash
 
 
 
@@ -92,7 +92,7 @@ lib/
 - `cached_network_image: ^3.3.0` - 网络图片缓存
 - `url_launcher: ^6.2.2` - URL启动器
 - `shared_preferences: ^2.2.2` - 本地存储
-- `drift: ^2.15.0` - 数据库ORM
+- `drift: ^2.29.0` - 数据库ORM
 - `sqlite3_flutter_libs: ^0.5.3` - SQLite支持
 - `path_provider: ^2.1.1` - 路径提供器
 - `package_info_plus: ^4.2.0` - 包信息获取
@@ -100,7 +100,7 @@ lib/
 **开发依赖**
 - `flutter_lints: ^3.0.0` - 代码质量检查
 - `build_runner: ^2.4.0` - 代码生成
-- `drift_dev: ^2.15.0` - Drift代码生成
+- `drift_dev: ^2.29.0` - Drift代码生成
 
 ## 🚀 快速开始
 
@@ -127,7 +127,7 @@ flutter build apk --split-per-abi --release
 
 ## 📊 版本信息
 
-- **当前版本**: 0.1.23+1
+- **当前版本**: 0.1.25+1
 - **Flutter SDK**: 3.35.0+
 - **Dart SDK**: 3.9.0+
 
