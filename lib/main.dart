@@ -21,7 +21,7 @@ void main() async {
       ImageCacheManager.initializeCache();
       MemoryManager.instance.initialize();
     } catch (e) {
-      // ignore
+      debugPrint('警告: 初始化缓存失败 - $e');
     }
   });
 }

@@ -946,6 +946,346 @@ class ChapterProgressesCompanion extends UpdateCompanion<ChapterProgress> {
   }
 }
 
+class $FavoritesTable extends Favorites
+    with TableInfo<$FavoritesTable, FavoriteItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FavoritesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _mangaIdMeta =
+      const VerificationMeta('mangaId');
+  @override
+  late final GeneratedColumn<String> mangaId = GeneratedColumn<String>(
+      'manga_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+      'title', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _authorMeta = const VerificationMeta('author');
+  @override
+  late final GeneratedColumn<String> author = GeneratedColumn<String>(
+      'author', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _coverPathMeta =
+      const VerificationMeta('coverPath');
+  @override
+  late final GeneratedColumn<String> coverPath = GeneratedColumn<String>(
+      'cover_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, mangaId, title, author, coverPath, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'favorites';
+  @override
+  VerificationContext validateIntegrity(Insertable<FavoriteItem> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('manga_id')) {
+      context.handle(_mangaIdMeta,
+          mangaId.isAcceptableOrUnknown(data['manga_id']!, _mangaIdMeta));
+    } else if (isInserting) {
+      context.missing(_mangaIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+          _titleMeta, title.isAcceptableOrUnknown(data['title']!, _titleMeta));
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('author')) {
+      context.handle(_authorMeta,
+          author.isAcceptableOrUnknown(data['author']!, _authorMeta));
+    } else if (isInserting) {
+      context.missing(_authorMeta);
+    }
+    if (data.containsKey('cover_path')) {
+      context.handle(_coverPathMeta,
+          coverPath.isAcceptableOrUnknown(data['cover_path']!, _coverPathMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+        {mangaId},
+      ];
+  @override
+  FavoriteItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FavoriteItem(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      mangaId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}manga_id'])!,
+      title: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}title'])!,
+      author: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}author'])!,
+      coverPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}cover_path']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $FavoritesTable createAlias(String alias) {
+    return $FavoritesTable(attachedDatabase, alias);
+  }
+}
+
+class FavoriteItem extends DataClass implements Insertable<FavoriteItem> {
+  final int id;
+  final String mangaId;
+  final String title;
+  final String author;
+  final String? coverPath;
+  final DateTime createdAt;
+  const FavoriteItem(
+      {required this.id,
+      required this.mangaId,
+      required this.title,
+      required this.author,
+      this.coverPath,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['manga_id'] = Variable<String>(mangaId);
+    map['title'] = Variable<String>(title);
+    map['author'] = Variable<String>(author);
+    if (!nullToAbsent || coverPath != null) {
+      map['cover_path'] = Variable<String>(coverPath);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FavoritesCompanion toCompanion(bool nullToAbsent) {
+    return FavoritesCompanion(
+      id: Value(id),
+      mangaId: Value(mangaId),
+      title: Value(title),
+      author: Value(author),
+      coverPath: coverPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverPath),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory FavoriteItem.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FavoriteItem(
+      id: serializer.fromJson<int>(json['id']),
+      mangaId: serializer.fromJson<String>(json['mangaId']),
+      title: serializer.fromJson<String>(json['title']),
+      author: serializer.fromJson<String>(json['author']),
+      coverPath: serializer.fromJson<String?>(json['coverPath']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'mangaId': serializer.toJson<String>(mangaId),
+      'title': serializer.toJson<String>(title),
+      'author': serializer.toJson<String>(author),
+      'coverPath': serializer.toJson<String?>(coverPath),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  FavoriteItem copyWith(
+          {int? id,
+          String? mangaId,
+          String? title,
+          String? author,
+          Value<String?> coverPath = const Value.absent(),
+          DateTime? createdAt}) =>
+      FavoriteItem(
+        id: id ?? this.id,
+        mangaId: mangaId ?? this.mangaId,
+        title: title ?? this.title,
+        author: author ?? this.author,
+        coverPath: coverPath.present ? coverPath.value : this.coverPath,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  FavoriteItem copyWithCompanion(FavoritesCompanion data) {
+    return FavoriteItem(
+      id: data.id.present ? data.id.value : this.id,
+      mangaId: data.mangaId.present ? data.mangaId.value : this.mangaId,
+      title: data.title.present ? data.title.value : this.title,
+      author: data.author.present ? data.author.value : this.author,
+      coverPath: data.coverPath.present ? data.coverPath.value : this.coverPath,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteItem(')
+          ..write('id: $id, ')
+          ..write('mangaId: $mangaId, ')
+          ..write('title: $title, ')
+          ..write('author: $author, ')
+          ..write('coverPath: $coverPath, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, mangaId, title, author, coverPath, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FavoriteItem &&
+          other.id == this.id &&
+          other.mangaId == this.mangaId &&
+          other.title == this.title &&
+          other.author == this.author &&
+          other.coverPath == this.coverPath &&
+          other.createdAt == this.createdAt);
+}
+
+class FavoritesCompanion extends UpdateCompanion<FavoriteItem> {
+  final Value<int> id;
+  final Value<String> mangaId;
+  final Value<String> title;
+  final Value<String> author;
+  final Value<String?> coverPath;
+  final Value<DateTime> createdAt;
+  const FavoritesCompanion({
+    this.id = const Value.absent(),
+    this.mangaId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.author = const Value.absent(),
+    this.coverPath = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  FavoritesCompanion.insert({
+    this.id = const Value.absent(),
+    required String mangaId,
+    required String title,
+    required String author,
+    this.coverPath = const Value.absent(),
+    required DateTime createdAt,
+  })  : mangaId = Value(mangaId),
+        title = Value(title),
+        author = Value(author),
+        createdAt = Value(createdAt);
+  static Insertable<FavoriteItem> custom({
+    Expression<int>? id,
+    Expression<String>? mangaId,
+    Expression<String>? title,
+    Expression<String>? author,
+    Expression<String>? coverPath,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (mangaId != null) 'manga_id': mangaId,
+      if (title != null) 'title': title,
+      if (author != null) 'author': author,
+      if (coverPath != null) 'cover_path': coverPath,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  FavoritesCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? mangaId,
+      Value<String>? title,
+      Value<String>? author,
+      Value<String?>? coverPath,
+      Value<DateTime>? createdAt}) {
+    return FavoritesCompanion(
+      id: id ?? this.id,
+      mangaId: mangaId ?? this.mangaId,
+      title: title ?? this.title,
+      author: author ?? this.author,
+      coverPath: coverPath ?? this.coverPath,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (mangaId.present) {
+      map['manga_id'] = Variable<String>(mangaId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (author.present) {
+      map['author'] = Variable<String>(author.value);
+    }
+    if (coverPath.present) {
+      map['cover_path'] = Variable<String>(coverPath.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoritesCompanion(')
+          ..write('id: $id, ')
+          ..write('mangaId: $mangaId, ')
+          ..write('title: $title, ')
+          ..write('author: $author, ')
+          ..write('coverPath: $coverPath, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -953,12 +1293,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $MangaProgressesTable(this);
   late final $ChapterProgressesTable chapterProgresses =
       $ChapterProgressesTable(this);
+  late final $FavoritesTable favorites = $FavoritesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [mangaProgresses, chapterProgresses];
+      [mangaProgresses, chapterProgresses, favorites];
 }
 
 typedef $$MangaProgressesTableCreateCompanionBuilder = MangaProgressesCompanion
@@ -1411,6 +1752,186 @@ typedef $$ChapterProgressesTableProcessedTableManager = ProcessedTableManager<
     ),
     ChapterProgress,
     PrefetchHooks Function()>;
+typedef $$FavoritesTableCreateCompanionBuilder = FavoritesCompanion Function({
+  Value<int> id,
+  required String mangaId,
+  required String title,
+  required String author,
+  Value<String?> coverPath,
+  required DateTime createdAt,
+});
+typedef $$FavoritesTableUpdateCompanionBuilder = FavoritesCompanion Function({
+  Value<int> id,
+  Value<String> mangaId,
+  Value<String> title,
+  Value<String> author,
+  Value<String?> coverPath,
+  Value<DateTime> createdAt,
+});
+
+class $$FavoritesTableFilterComposer
+    extends Composer<_$AppDatabase, $FavoritesTable> {
+  $$FavoritesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mangaId => $composableBuilder(
+      column: $table.mangaId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get author => $composableBuilder(
+      column: $table.author, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get coverPath => $composableBuilder(
+      column: $table.coverPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$FavoritesTableOrderingComposer
+    extends Composer<_$AppDatabase, $FavoritesTable> {
+  $$FavoritesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mangaId => $composableBuilder(
+      column: $table.mangaId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get author => $composableBuilder(
+      column: $table.author, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get coverPath => $composableBuilder(
+      column: $table.coverPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$FavoritesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FavoritesTable> {
+  $$FavoritesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get mangaId =>
+      $composableBuilder(column: $table.mangaId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get author =>
+      $composableBuilder(column: $table.author, builder: (column) => column);
+
+  GeneratedColumn<String> get coverPath =>
+      $composableBuilder(column: $table.coverPath, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$FavoritesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $FavoritesTable,
+    FavoriteItem,
+    $$FavoritesTableFilterComposer,
+    $$FavoritesTableOrderingComposer,
+    $$FavoritesTableAnnotationComposer,
+    $$FavoritesTableCreateCompanionBuilder,
+    $$FavoritesTableUpdateCompanionBuilder,
+    (
+      FavoriteItem,
+      BaseReferences<_$AppDatabase, $FavoritesTable, FavoriteItem>
+    ),
+    FavoriteItem,
+    PrefetchHooks Function()> {
+  $$FavoritesTableTableManager(_$AppDatabase db, $FavoritesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FavoritesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FavoritesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FavoritesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> mangaId = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String> author = const Value.absent(),
+            Value<String?> coverPath = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              FavoritesCompanion(
+            id: id,
+            mangaId: mangaId,
+            title: title,
+            author: author,
+            coverPath: coverPath,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String mangaId,
+            required String title,
+            required String author,
+            Value<String?> coverPath = const Value.absent(),
+            required DateTime createdAt,
+          }) =>
+              FavoritesCompanion.insert(
+            id: id,
+            mangaId: mangaId,
+            title: title,
+            author: author,
+            coverPath: coverPath,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$FavoritesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $FavoritesTable,
+    FavoriteItem,
+    $$FavoritesTableFilterComposer,
+    $$FavoritesTableOrderingComposer,
+    $$FavoritesTableAnnotationComposer,
+    $$FavoritesTableCreateCompanionBuilder,
+    $$FavoritesTableUpdateCompanionBuilder,
+    (
+      FavoriteItem,
+      BaseReferences<_$AppDatabase, $FavoritesTable, FavoriteItem>
+    ),
+    FavoriteItem,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1419,4 +1940,6 @@ class $AppDatabaseManager {
       $$MangaProgressesTableTableManager(_db, _db.mangaProgresses);
   $$ChapterProgressesTableTableManager get chapterProgresses =>
       $$ChapterProgressesTableTableManager(_db, _db.chapterProgresses);
+  $$FavoritesTableTableManager get favorites =>
+      $$FavoritesTableTableManager(_db, _db.favorites);
 }

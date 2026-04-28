@@ -10,6 +10,7 @@ import '../../utils/dual_page_utils.dart';
 import '../../utils/page_transform_state.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ReaderController extends ChangeNotifier {
   static const String transitionPageMarker = 'transition://chapter_end';
@@ -86,6 +87,7 @@ class ReaderController extends ChangeNotifier {
     setSystemUI();
     setupVolumeKeyListener();
     enableVolumeKeyInterception(true);
+    _loadPreferences();
     loadChapterImages(context);
     startHideTimer();
     startProgressSaveTimer();
@@ -94,6 +96,40 @@ class ReaderController extends ChangeNotifier {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       focusNode.requestFocus();
     });
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dirIndex = prefs.getInt('reader_reading_direction');
+      if (dirIndex != null && dirIndex < ReadingDirection.values.length) {
+        readingDirection = ReadingDirection.values[dirIndex];
+        config = ReadingGestureConfig(
+          readingDirection: readingDirection,
+          tapToZoom: config.tapToZoom,
+          volumeButtonNavigation: config.volumeButtonNavigation,
+          fullscreenOnTap: config.fullscreenOnTap,
+          keepScreenOn: config.keepScreenOn,
+          autoHideControlsDelay: config.autoHideControlsDelay,
+          enableImmersiveMode: config.enableImmersiveMode,
+          gestureActions: config.gestureActions,
+        );
+      }
+      final layoutIndex = prefs.getInt('reader_page_layout');
+      if (layoutIndex != null && layoutIndex < PageLayout.values.length) {
+        dualPageConfig.pageLayout = PageLayout.values[layoutIndex];
+      }
+      final shift = prefs.getBool('reader_shift_double_page');
+      if (shift != null) {
+        dualPageConfig.shiftDoublePage = shift;
+      }
+      final volNav = prefs.getBool('reader_volume_button_nav');
+      if (volNav != null) {
+        volumeButtonNavigationEnabled = volNav;
+      }
+    } catch (e) {
+      debugPrint('警告: 加载阅读偏好失败 - $e');
+    }
   }
 
   Chapter getCurrentChapter() {
@@ -157,7 +193,7 @@ class ReaderController extends ChangeNotifier {
         }
       }
     } catch (e) {
-      // ignore
+      debugPrint('警告: 加载阅读进度失败 - $e');
     }
   }
 
@@ -262,7 +298,7 @@ class ReaderController extends ChangeNotifier {
         isRead: true,
       );
     } catch (e) {
-      // ignore
+      debugPrint('警告: 标记章节已读失败 - $e');
     }
   }
 
@@ -278,7 +314,7 @@ class ReaderController extends ChangeNotifier {
         totalPages: imageUrls.length,
       );
     } catch (e) {
-      // ignore
+      debugPrint('警告: 保存阅读进度失败 - $e');
     }
   }
 
@@ -356,7 +392,7 @@ class ReaderController extends ChangeNotifier {
           }
         }
       } catch (e) {
-        // ignore
+        debugPrint('警告: 预加载下一章失败 - $e');
       }
     });
   }
@@ -659,7 +695,34 @@ class ReaderController extends ChangeNotifier {
       setupVolumeKeyListener();
     }
     enableVolumeKeyInterception(enabled);
+    _saveBool('reader_volume_button_nav', enabled);
     notifyListeners();
+  }
+
+  void setPageLayout(PageLayout layout) {
+    dualPageConfig.pageLayout = layout;
+    _saveInt('reader_page_layout', layout.index);
+    notifyListeners();
+  }
+
+  void setShiftDoublePage(bool value) {
+    dualPageConfig.shiftDoublePage = value;
+    _saveBool('reader_shift_double_page', value);
+    notifyListeners();
+  }
+
+  void _saveInt(String key, int value) {
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setInt(key, value),
+      onError: (e) => debugPrint('警告: 保存阅读偏好失败($key) - $e'),
+    );
+  }
+
+  void _saveBool(String key, bool value) {
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setBool(key, value),
+      onError: (e) => debugPrint('警告: 保存阅读偏好失败($key) - $e'),
+    );
   }
 
   void showSettings() {
@@ -701,7 +764,7 @@ class ReaderController extends ChangeNotifier {
         {'enabled': enabled},
       );
     } catch (e) {
-      // ignore
+      debugPrint('警告: 音量键拦截失败 - $e');
     }
   }
 
@@ -805,6 +868,7 @@ class ReaderController extends ChangeNotifier {
       enableImmersiveMode: config.enableImmersiveMode,
       gestureActions: config.gestureActions,
     );
+    _saveInt('reader_reading_direction', direction.index);
     notifyListeners();
   }
 

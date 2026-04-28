@@ -115,6 +115,87 @@ class LoadingAnimations {
       ),
     );
   }
+
+  static Widget mangaGridSkeleton({
+    int count = 6,
+    int? crossAxisCount,
+    double? maxCrossAxisExtent,
+  }) {
+    return _MangaGridSkeleton(
+      count: count,
+      crossAxisCount: crossAxisCount,
+      maxCrossAxisExtent: maxCrossAxisExtent,
+    );
+  }
+}
+
+class _MangaGridSkeleton extends StatefulWidget {
+  final int count;
+  final int? crossAxisCount;
+  final double? maxCrossAxisExtent;
+
+  const _MangaGridSkeleton({
+    required this.count,
+    this.crossAxisCount,
+    this.maxCrossAxisExtent,
+  });
+
+  @override
+  State<_MangaGridSkeleton> createState() => _MangaGridSkeletonState();
+}
+
+class _MangaGridSkeletonState extends State<_MangaGridSkeleton>
+    with TickerProviderStateMixin {
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gridDelegate = widget.maxCrossAxisExtent != null
+        ? SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: widget.maxCrossAxisExtent!,
+            childAspectRatio: 2 / 3.2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          )
+        : SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: widget.crossAxisCount ?? 3,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.65,
+          );
+
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        final opacity = 0.4 + (_animationController.value * 0.3);
+        return Opacity(
+          opacity: opacity,
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: gridDelegate,
+            itemCount: widget.count,
+            itemBuilder: (_, __) => LoadingAnimations.mangaCardSkeleton(),
+          ),
+        );
+      },
+    );
+  }
 }
 
 // 漫画书样式加载器

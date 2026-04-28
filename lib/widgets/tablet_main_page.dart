@@ -5,6 +5,7 @@ import 'manga_list_page.dart';
 import 'search_page.dart';
 import 'tags_page.dart';
 import 'history_page.dart';
+import 'favorites_page.dart';
 import 'settings_page.dart';
 import '../utils/theme_manager.dart';
 import 'main_navigation_page.dart';
@@ -25,6 +26,7 @@ class _TabletMainPageState extends State<TabletMainPage> {
     const MangaListPage(),
     const SearchPage(),
     const TagsPage(),
+    const FavoritesPage(),
     const HistoryPage(),
     const SettingsPage(),
   ];

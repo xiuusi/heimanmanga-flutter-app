@@ -73,20 +73,41 @@ class ChapterProgresses extends Table {
   List<Set<Column>> get uniqueKeys => [{chapterId}];
 }
 
+/// 收藏表
+@DataClassName('FavoriteItem')
+class Favorites extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  TextColumn get mangaId => text()();
+
+  TextColumn get title => text()();
+
+  TextColumn get author => text()();
+
+  TextColumn get coverPath => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [{mangaId}];
+}
+
 /// 数据库定义
-@DriftDatabase(tables: [MangaProgresses, ChapterProgresses])
+@DriftDatabase(tables: [MangaProgresses, ChapterProgresses, Favorites])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (migrator, from, to) async {
       if (from < 2) {
-        // 添加 readingDuration 字段到 ChapterProgresses 表
         await migrator.addColumn(chapterProgresses, chapterProgresses.readingDuration);
+      }
+      if (from < 3) {
+        await migrator.createTable(favorites);
       }
     },
   );

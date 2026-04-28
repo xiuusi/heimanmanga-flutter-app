@@ -85,14 +85,9 @@ class _MangaListPageState extends State<MangaListPage> {
                 // 正在加载
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return SliverToBoxAdapter(
-                    child: Container(
-                      height: 200,
-                      child: Center(
-                        child: LoadingAnimations.mangaLoader(
-                          size: 60.0,
-                          duration: const Duration(milliseconds: 1200),
-                        ),
-                      ),
+                    child: LoadingAnimations.mangaGridSkeleton(
+                      count: 6,
+                      maxCrossAxisExtent: 200,
                     ),
                   );
                 }
@@ -195,7 +190,7 @@ class _MangaListPageState extends State<MangaListPage> {
       // 等待漫画列表数据加载完成
       await _mangaListFuture;
     } catch (e) {
-      // 错误处理 - RefreshIndicator 会自动处理错误状态
+      debugPrint('警告: 下拉刷新失败 - $e');
     }
   }
 

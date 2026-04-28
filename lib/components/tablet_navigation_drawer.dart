@@ -39,6 +39,11 @@ class TabletNavigationDrawer extends StatelessWidget {
           label: Text('标签'),
         ),
         NavigationRailDestination(
+          icon: Icon(Icons.favorite_outline),
+          selectedIcon: Icon(Icons.favorite),
+          label: Text('收藏'),
+        ),
+        NavigationRailDestination(
           icon: Icon(Icons.history_outlined),
           selectedIcon: Icon(Icons.history),
           label: Text('历史'),

@@ -4,6 +4,7 @@ import 'search_page.dart';
 import 'tags_page.dart';
 import 'settings_page.dart';
 import 'history_page.dart';
+import 'favorites_page.dart';
 import '../utils/theme_manager.dart';
 
 class MainNavigationPage extends StatefulWidget {
@@ -30,6 +31,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       const MangaListPage(),
       const SearchPage(),
       const TagsPage(),
+      const FavoritesPage(),
       const HistoryPage(),
     ];
 
@@ -164,10 +166,16 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
                   index: 2,
                 ),
                 _buildNavItem(
+                  icon: Icons.favorite_outline,
+                  activeIcon: Icons.favorite,
+                  label: '收藏',
+                  index: 3,
+                ),
+                _buildNavItem(
                   icon: Icons.history_outlined,
                   activeIcon: Icons.history,
                   label: '历史',
-                  index: 3,
+                  index: 4,
                 ),
               ],
             ),

@@ -98,10 +98,9 @@ class ReaderSettingsPanel extends StatelessWidget {
                           context,
                           '启用页面移位',
                           controller.dualPageConfig.shiftDoublePage,
-                          (value) {
-                            controller.dualPageConfig.shiftDoublePage = value;
-                            controller.notifyExternal();
-                          },
+                      (value) {
+                        controller.setShiftDoublePage(value);
+                      },
                         ),
                       ],
                     ),
@@ -181,8 +180,7 @@ class ReaderSettingsPanel extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        controller.dualPageConfig.pageLayout = layout;
-        controller.notifyExternal();
+        controller.setPageLayout(layout);
         HapticFeedbackManager.lightImpact();
         controller.showSnackBar(context, '已切换到$title');
       },

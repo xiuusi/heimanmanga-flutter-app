@@ -7,6 +7,8 @@ import 'page_transitions.dart';
 import 'loading_animations_simplified.dart';
 import '../utils/image_cache_manager.dart';
 import '../utils/responsive_layout.dart';
+import '../utils/tag_utils.dart';
+import '../services/favorites_service.dart';
 
 
 class MangaDetailPage extends StatefulWidget {
@@ -21,9 +23,12 @@ class MangaDetailPage extends StatefulWidget {
 class _MangaDetailPageState extends State<MangaDetailPage> {
   late Future<Manga> _mangaDetailFuture;
   final ReadingProgressService _progressService = ReadingProgressService();
+  final FavoritesService _favoritesService = FavoritesService();
+
+  bool _isFavorite = false;
 
   // 用于存储章节阅读状态的Map
-  Map<String, bool> _chapterReadStatus = {};
+  Map<String, double?> _chapterReadStatus = {};
 
   // 阅读按钮相关状态
   String _readButtonText = "开始阅读";
@@ -37,19 +42,41 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
   void initState() {
     super.initState();
     _mangaDetailFuture = _loadMangaDetail();
+    _loadFavoriteStatus();
+  }
+
+  Future<void> _loadFavoriteStatus() async {
+    final isFav = await _favoritesService.isFavorite(widget.manga.id);
+    if (mounted) {
+      setState(() => _isFavorite = isFav);
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (_isFavorite) {
+      await _favoritesService.removeFavorite(widget.manga.id);
+    } else {
+      await _favoritesService.addFavorite(
+        mangaId: widget.manga.id,
+        title: widget.manga.title,
+        author: widget.manga.author,
+        coverPath: widget.manga.coverPath,
+      );
+    }
+    if (mounted) {
+      setState(() => _isFavorite = !_isFavorite);
+    }
   }
 
   /// 加载所有章节的阅读状态
   Future<void> _loadChapterReadStatus(Manga manga) async {
-    final Map<String, bool> statusMap = {};
+    final Map<String, double?> statusMap = {};
 
     for (final chapter in manga.chapters) {
       final progress = await _progressService.getProgress(manga.id, chapterId: chapter.id);
-      final isChapterRead = progress?.isChapterRead() ?? false;
-      statusMap[chapter.id] = isChapterRead;
+      statusMap[chapter.id] = progress?.readingPercentage;
     }
 
-    // 只有当状态确实发生变化时才更新UI
     if (mounted && !_areMapsEqual(_chapterReadStatus, statusMap)) {
       setState(() {
         _chapterReadStatus = statusMap;
@@ -57,8 +84,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
     }
   }
 
-  /// 比较两个Map是否相等
-  bool _areMapsEqual(Map<String, bool> map1, Map<String, bool> map2) {
+  bool _areMapsEqual(Map<String, double?> map1, Map<String, double?> map2) {
     if (map1.length != map2.length) return false;
 
     for (final key in map1.keys) {
@@ -199,6 +225,16 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: _isFavorite ? Colors.red : null,
+            ),
+            onPressed: _toggleFavorite,
+            tooltip: _isFavorite ? '取消收藏' : '添加收藏',
+          ),
+        ],
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
@@ -425,7 +461,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
     final Map<String, List<TagModel>> groupedTags = {};
 
     for (final tag in tags) {
-      final namespace = _getNamespaceName(tag.namespaceId);
+      final namespace = TagUtils.namespaceNameFromId(tag.namespaceId);
       // 过滤掉角色命名空间
       if (namespace != 'character') {
         if (!groupedTags.containsKey(namespace)) {
@@ -465,10 +501,10 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: _getTagColor(context, namespace).withAlpha(26), // 0.1 * 255 ≈ 26
+                      color: TagUtils.detailTagColor(namespace).withAlpha(26),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _getTagColor(context, namespace).withAlpha(77), // 0.3 * 255 ≈ 77
+                        color: TagUtils.detailTagColor(namespace).withAlpha(77),
                         width: 1,
                       ),
                     ),
@@ -476,7 +512,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                       tag.name,
                       style: TextStyle(
                         fontSize: 12,
-                        color: _getTagColor(context, namespace),
+                        color: TagUtils.detailTagColor(namespace),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -489,34 +525,6 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
         }).toList(),
       ],
     );
-  }
-
-  // 根据命名空间ID获取命名空间名称
-  String _getNamespaceName(int namespaceId) {
-    switch (namespaceId) {
-      case 1: return 'type';
-      case 2: return 'artist';
-      case 3: return 'character';
-      case 4: return 'main';
-      case 5: return 'sub';
-      default: return 'unknown';
-    }
-  }
-
-  // 根据命名空间获取标签颜色
-  Color _getTagColor(BuildContext context, String namespace) {
-    switch (namespace) {
-      case 'type':
-        return const Color(0xFF1565C0); // 蓝色
-      case 'artist':
-        return const Color(0xFF7B1FA2); // 紫色
-      case 'main':
-        return const Color(0xFFEF6C00); // 橙色
-      case 'sub':
-        return const Color(0xFF757575); // 灰色
-      default:
-        return Theme.of(context).colorScheme.primary;
-    }
   }
 
   // 构建漫画描述
@@ -597,7 +605,9 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                 ),
                 itemBuilder: (context, index) {
                   final chapter = manga.chapters[index];
-                  final isChapterRead = _chapterReadStatus[chapter.id] ?? false;
+                  final progress = _chapterReadStatus[chapter.id];
+                  final isChapterRead = (progress ?? 0) >= 0.99;
+                  final hasProgress = progress != null && progress > 0 && progress < 0.99;
 
                   return GestureDetector(
                     onLongPress: () {
@@ -654,13 +664,39 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
                             ),
                         ],
                       ),
-                      subtitle: Text(
-                        '文件大小: ${(chapter.fileSize / (1024 * 1024)).toStringAsFixed(2)} MB',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurface.withAlpha(179), // 0.7 * 255 ≈ 179
-                        ),
-                      ),
+                      subtitle: hasProgress
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 4,
+                                    backgroundColor: Colors.grey.withAlpha(51),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${(progress! * 100).toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              '文件大小: ${(chapter.fileSize / (1024 * 1024)).toStringAsFixed(2)} MB',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurface.withAlpha(179),
+                              ),
+                            ),
                       trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withAlpha(128)), // 0.5 * 255 ≈ 128
                       onTap: () async {
                         await Navigator.push(
@@ -714,7 +750,7 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
 
               // 立即更新本地状态，确保UI实时响应
               setState(() {
-                _chapterReadStatus[chapter.id] = false;
+                _chapterReadStatus[chapter.id] = null;
               });
             },
             style: ElevatedButton.styleFrom(
@@ -887,7 +923,8 @@ class _MangaDetailPageState extends State<MangaDetailPage> {
             itemCount: manga.chapters.length,
             itemBuilder: (context, index) {
               final chapter = manga.chapters[index];
-              final isChapterRead = _chapterReadStatus[chapter.id] ?? false;
+              final progress = _chapterReadStatus[chapter.id];
+              final isChapterRead = (progress ?? 0) >= 0.99;
 
               return Container(
                 decoration: BoxDecoration(

@@ -27,6 +27,9 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _releaseUrl;
   int _diskCacheBytes = 0;
 
+  Map<String, dynamic>? _readingStats;
+  bool _isLoadingStats = false;
+
   static const _presetColors = [
     Color(0xFFFF6B6B),
     Color(0xFFE53935),
@@ -47,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _themeManager.addListener(_onThemeChanged);
     _calculateDiskCache();
+    _loadReadingStats();
   }
 
   @override
@@ -57,6 +61,26 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _onThemeChanged() {
     setState(() {});
+  }
+
+  Future<void> _loadReadingStats() async {
+    setState(() => _isLoadingStats = true);
+    try {
+      final service = ReadingProgressService();
+      await service.init();
+      final stats = await service.getReadingStats();
+      if (mounted) {
+        setState(() {
+          _readingStats = stats;
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('警告: 加载阅读统计失败 - $e');
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
   }
 
   Future<void> _checkForUpdates() async {
@@ -398,6 +422,45 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
 
             const SizedBox(height: 16),
+            _buildSectionTitle('阅读统计'),
+
+            Card(
+              child: _isLoadingStats
+                  ? const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : _readingStats != null
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildStatItem(
+                                icon: Icons.auto_stories,
+                                label: '阅读漫画',
+                                value: '${_readingStats!['totalManga'] ?? 0}',
+                              ),
+                              _buildStatItem(
+                                icon: Icons.image,
+                                label: '已读页数',
+                                value: '${_readingStats!['totalPages'] ?? 0}',
+                              ),
+                              _buildStatItem(
+                                icon: Icons.trending_up,
+                                label: '平均进度',
+                                value: '${(((_readingStats!['averageProgress'] ?? 0) as num) * 100).toStringAsFixed(0)}%',
+                              ),
+                            ],
+                          ),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: Text('暂无阅读数据')),
+                        ),
+            ),
+
+            const SizedBox(height: 16),
             _buildSectionTitle('数据'),
 
             Card(
@@ -445,7 +508,7 @@ class _SettingsPageState extends State<SettingsPage> {
         setState(() => _diskCacheBytes = total);
       }
     } catch (e) {
-      // ignore
+      debugPrint('警告: 计算磁盘缓存失败 - $e');
     }
   }
 
@@ -495,6 +558,33 @@ class _SettingsPageState extends State<SettingsPage> {
         const SnackBar(content: Text('图片缓存已清除（内存 + 磁盘）')),
       );
     }
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurface.withAlpha(179),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildSectionTitle(String title) {

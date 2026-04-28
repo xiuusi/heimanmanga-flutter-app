@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import 'loading_animations_simplified.dart';
 import 'manga_list_page.dart';
 import 'pagination_widget.dart';
+import '../utils/tag_utils.dart';
 
 class TagsPage extends StatefulWidget {
   const TagsPage({super.key});
@@ -148,39 +149,6 @@ class _TagsPageState extends State<TagsPage> {
     });
   }
 
-  Color _getTagColor(String namespace) {
-    switch (namespace) {
-      case 'type':
-        return const Color(0xFFFFCDD2);
-      case 'artist':
-        return const Color(0xFFC8E6C9);
-      case 'character':
-        return const Color(0xFFBBDEFB);
-      case 'main':
-        return const Color(0xFFFFE0B2);
-      case 'sub':
-        return const Color(0xFFF3E5F5);
-      default:
-        return const Color(0xFFE0E0E0);
-    }
-  }
-
-  Color _getTagTextColor(String namespace) {
-    switch (namespace) {
-      case 'type':
-        return const Color(0xFFC62828);
-      case 'artist':
-        return const Color(0xFF2E7D32);
-      case 'character':
-        return const Color(0xFF1565C0);
-      case 'main':
-        return const Color(0xFFEF6C00);
-      case 'sub':
-        return const Color(0xFF7B1FA2);
-      default:
-        return Colors.black87;
-    }
-  }
 
 
 
@@ -399,11 +367,11 @@ class _TagsPageState extends State<TagsPage> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? primary
-                              : _getTagColor(tag.namespaceName),
+                              : TagUtils.tagChipBackgroundColor(tag.namespaceName),
                           borderRadius: BorderRadius.circular(20),
                           border: isSelected
                               ? null
-                              : Border.all(color: _getTagColor(tag.namespaceName)),
+                              : Border.all(color: TagUtils.tagChipBackgroundColor(tag.namespaceName)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -413,7 +381,7 @@ class _TagsPageState extends State<TagsPage> {
                               style: TextStyle(
                                 color: isSelected
                                     ? Colors.white
-                                    : _getTagTextColor(tag.namespaceName),
+                                    : TagUtils.tagChipTextColor(tag.namespaceName),
                                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                               ),
                             ),
@@ -488,14 +456,9 @@ class _TagsPageState extends State<TagsPage> {
                   // 正在加载
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return SliverToBoxAdapter(
-                      child: Container(
-                        height: 200,
-                        child: Center(
-                          child: LoadingAnimations.mangaLoader(
-                            size: 60.0,
-                            duration: const Duration(milliseconds: 1200),
-                          ),
-                        ),
+                      child: LoadingAnimations.mangaGridSkeleton(
+                        count: 6,
+                        maxCrossAxisExtent: 200,
                       ),
                     );
                   }
