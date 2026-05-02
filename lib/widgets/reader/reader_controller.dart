@@ -402,6 +402,11 @@ class ReaderController extends ChangeNotifier {
     nextChapterPreloadTimer = null;
   }
 
+  void refreshPreload(BuildContext context) {
+    preloadedPages.clear();
+    preloadNearbyPages(context);
+  }
+
   void startHideTimer() {
     hideTimer?.cancel();
     hideTimer = Timer(config.autoHideControlsDelay, () {

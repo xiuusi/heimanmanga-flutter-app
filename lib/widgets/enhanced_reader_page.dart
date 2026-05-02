@@ -67,6 +67,13 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _controller.refreshPreload(context);
+    }
+  }
+
+  @override
   Future<bool> didPopRoute() async {
     return false;
   }
