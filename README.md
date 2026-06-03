@@ -48,6 +48,7 @@ lib/
 │   ├── api_service.dart               # API服务
 │   ├── dio_service.dart               # Dio客户端配置
 │   ├── drift_reading_progress_manager.dart  # Drift阅读进度管理器
+│   ├── favorites_service.dart         # 收藏服务
 │   └── reading_progress_service.dart  # 阅读进度服务
 ├── utils/                             # 工具类目录
 │   ├── dual_page_utils.dart           # 双页模式工具类
@@ -59,11 +60,13 @@ lib/
 │   ├── reader_gestures.dart           # 阅读器手势处理
 │   ├── responsive_layout.dart         # 响应式布局工具
 │   ├── smart_preload_manager.dart     # 智能预加载管理器
+│   ├── tag_utils.dart                  # 标签工具类
 │   └── theme_manager.dart             # 主题管理器
 └── widgets/                           # 界面组件目录
     │   ├── about_page.dart                # 关于页面
     │   ├── carousel_widget.dart           # 轮播组件
     │   ├── enhanced_reader_page.dart      # 增强版阅读器页面
+    │   ├── favorites_page.dart             # 收藏页面
     │   ├── history_page.dart              # 历史记录页面
     │   ├── loading_animations_simplified.dart  # 加载动画
     │   ├── main_navigation_page.dart      # 主导航页面
@@ -77,6 +80,9 @@ lib/
     │   ├── tags_page.dart                 # 标签页面
     │   └── reader/                        # 阅读器子组件
     │       ├── reader_controller.dart     # 阅读器状态管理(ChangeNotifier)
+    │       ├── reader_controls.dart       # 顶部栏与底部进度条控件
+    │       ├── reader_page_renderer.dart  # 单页/双页/过渡页渲染
+    │       ├── reader_status_widgets.dart # 加载态/错误态/遮罩
     │       ├── reader_settings_panel.dart # 阅读设置面板
     │       └── reader_chapter_end_page.dart # 章节结尾过渡页
 ```
@@ -90,17 +96,20 @@ lib/
 **主要依赖包**
 - `dio: ^5.0.0` - HTTP客户端，用于API通信
 - `cached_network_image: ^3.3.0` - 网络图片缓存
+- `dynamic_color: ^1.7.1` - Material You 动态取色
 - `url_launcher: ^6.2.2` - URL启动器
 - `shared_preferences: ^2.2.2` - 本地存储
 - `drift: ^2.29.0` - 数据库ORM
 - `sqlite3_flutter_libs: ^0.5.3` - SQLite支持
 - `path_provider: ^2.1.1` - 路径提供器
+- `path: ^1.8.3` - 路径工具
 - `package_info_plus: ^4.2.0` - 包信息获取
 
 **开发依赖**
 - `flutter_lints: ^3.0.0` - 代码质量检查
 - `build_runner: ^2.4.0` - 代码生成
 - `drift_dev: ^2.29.0` - Drift代码生成
+- `flutter_launcher_icons: ^0.13.1` - 应用图标生成
 
 ## 🚀 快速开始
 
@@ -127,7 +136,7 @@ flutter build apk --split-per-abi --release
 
 ## 📊 版本信息
 
-- **当前版本**: 0.1.25+1
+- **当前版本**: 0.1.26+2
 - **Flutter SDK**: 3.35.0+
 - **Dart SDK**: 3.9.0+
 
