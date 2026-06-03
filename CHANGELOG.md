@@ -3,6 +3,12 @@
 ## v0.1.26
 
 - **修复**: 阅读器休眠恢复后预加载失效，翻页黑屏问题。新增生命周期监听，应用回到前台时清空预加载记录并重新触发预加载
+- **重构**: 阅读器页面进一步拆分，`enhanced_reader_page.dart` 从 681 行精简至 316 行（-54%）
+  - 新增 `reader_page_renderer.dart` — 单页/双页/过渡页/图片渲染组件
+  - 新增 `reader_controls.dart` — 顶部栏 + 底部进度条控件
+  - 新增 `reader_status_widgets.dart` — 加载态/错误态/章节加载遮罩
+  - `reader_controller.dart` 公开 `getPageGroups()`，消除页面端重复逻辑
+- **计划**: 从 UPDATE_PLAN 中移除离线下载待办项
 
 ## v0.1.25
 
