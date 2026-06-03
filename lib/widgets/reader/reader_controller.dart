@@ -166,7 +166,7 @@ class ReaderController extends ChangeNotifier {
         notifyListeners();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          pageGroups = _getPageGroups(context);
+          pageGroups = getPageGroups(context);
           preloadNearbyPages(context);
           notifyListeners();
         });
@@ -676,6 +676,7 @@ class ReaderController extends ChangeNotifier {
         pageController.jumpToPage(0);
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          pageGroups = getPageGroups(context);
           preloadedPages.clear();
           preloadNearbyPages(context);
         });
@@ -828,7 +829,7 @@ class ReaderController extends ChangeNotifier {
     return DualPageUtils.findGroupIndex(clamped, actualLayout, dualPageConfig.shiftDoublePage);
   }
 
-  List<PageGroup> _getPageGroups(BuildContext context) {
+  List<PageGroup> getPageGroups(BuildContext context) {
     final isLandscape = DualPageUtils.isLandscape(context);
     final hasTransitionPage = imageUrls.isNotEmpty && imageUrls.last == transitionPageMarker;
 
