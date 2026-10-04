@@ -97,6 +97,9 @@ class ReaderBottomControls extends StatelessWidget {
   final ValueChanged<double> onPageSliderChanged;
   final VoidCallback onSettingsTap;
 
+  /// 打开章节目录（原先换章必须退出阅读器，属于核心可用性缺口）。
+  final VoidCallback onChaptersTap;
+
   /// 同 ReaderTopControls：隐藏时屏蔽命中测试（P2-11）。
   final bool interactive;
 
@@ -107,6 +110,7 @@ class ReaderBottomControls extends StatelessWidget {
     required this.totalPages,
     required this.onPageSliderChanged,
     required this.onSettingsTap,
+    required this.onChaptersTap,
     this.interactive = true,
   });
 
@@ -151,7 +155,8 @@ class ReaderBottomControls extends StatelessWidget {
                       inactiveTrackColor: Colors.grey[600],
                       thumbColor: primary,
                       overlayColor: primary.withAlpha(51),
-                      trackHeight: 4.0,
+                      // 轨道加粗，方便拇指拖动（好用优先）
+                      trackHeight: 6.0,
                     ),
                     child: Slider(
                       value: sliderValue,
@@ -174,10 +179,16 @@ class ReaderBottomControls extends StatelessWidget {
                       Row(
                         children: [
                           IconButton(
+                            icon: const Icon(Icons.menu_book, color: Colors.white),
+                            tooltip: '章节目录',
+                            onPressed: onChaptersTap,
+                          ),
+                          IconButton(
                             icon: const Icon(
                               Icons.settings,
                               color: Colors.white,
                             ),
+                            tooltip: '阅读设置',
                             onPressed: onSettingsTap,
                           ),
                         ],

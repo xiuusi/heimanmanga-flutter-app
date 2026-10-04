@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../../utils/reader_gestures.dart';
 import '../../utils/dual_page_utils.dart';
@@ -15,17 +17,21 @@ class ReaderSettingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 面板宽度自适应：原先固定 350dp，在 360dp 宽的竖屏手机上会盖住 97% 的宽度，
+    // 调整阅读方向/分页时几乎看不到页面（好用优先）。
+    final screenWidth = MediaQuery.of(context).size.width;
+    final panelWidth = math.min(340.0, screenWidth * 0.82);
     return AnimatedBuilder(
       animation: animationController,
       builder: (context, child) {
         return Positioned(
-          left: -400 * (1 - animationController.value),
+          left: -(panelWidth + 24) * (1 - animationController.value),
           top: 0,
           bottom: 0,
           child: GestureDetector(
             onTap: () {},
             child: Container(
-              width: 350,
+              width: panelWidth,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.black.withAlpha(242),

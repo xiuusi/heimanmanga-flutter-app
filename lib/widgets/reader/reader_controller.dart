@@ -736,7 +736,7 @@ class ReaderController extends ChangeNotifier {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.black.withAlpha(230),
+        backgroundColor: Theme.of(ctx).colorScheme.surfaceContainerHigh,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -753,8 +753,8 @@ class ReaderController extends ChangeNotifier {
               const SizedBox(height: 16),
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: Theme.of(ctx).colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -764,7 +764,7 @@ class ReaderController extends ChangeNotifier {
               Text(
                 message,
                 style: TextStyle(
-                  color: Colors.white.withAlpha(204),
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -778,7 +778,9 @@ class ReaderController extends ChangeNotifier {
                   onPressed: () => Navigator.of(ctx).pop(),
                   child: Text(
                     '取消',
-                    style: TextStyle(color: Colors.white.withAlpha(179)),
+                    style: TextStyle(
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
                 ElevatedButton(
@@ -788,7 +790,7 @@ class ReaderController extends ChangeNotifier {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(ctx).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(ctx).colorScheme.onPrimary,
                   ),
                   child: const Text('前往下一章'),
                 ),
@@ -801,7 +803,7 @@ class ReaderController extends ChangeNotifier {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(ctx).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(ctx).colorScheme.onPrimary,
                   ),
                   child: const Text('退出观看'),
                 ),
@@ -875,6 +877,14 @@ class ReaderController extends ChangeNotifier {
         showSnackBar(context, '加载下一章失败');
       }
     }
+  }
+
+  /// 切换到指定章节（供章节目录使用），复用换章加载逻辑。
+  /// 返回 Future 便于调用方在切换后关闭弹层。
+  Future<void> switchToChapter(BuildContext context, int chapterIndex) {
+    if (chapterIndex < 0 || chapterIndex >= chapters.length) return Future.value();
+    if (chapterIndex == currentChapterIndex) return Future.value();
+    return loadNextChapter(context, chapterIndex);
   }
 
   void setVolumeButtonNavigation(bool enabled) {

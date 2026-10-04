@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.1.27
+
+本轮为质量加固版本：修复 P0–P3 全部问题（详见 `CODE_REVIEW.md`），并补齐发布链路与若干可用性缺口。
+
+- **修复 (P0)**
+  - 竖屏/网漫模式下翻页会调用未挂载的 `PageController`，抛 `StateError` 且误报"加载下一章失败"
+  - release 包需手动签名，此前使用公开的 Android debug 密钥；现改为独立 release keystore（`android/key.properties` + `.jks`，均已 gitignore）
+- **修复 (P1)**
+  - 竖屏模式页码与跳转改为按列表真实布局计算（原先按屏高换算，页码与进度都不准）
+  - 加载失败后"重试"永不复原（`errorMessage` 未清空）
+  - 阅读进度/收藏各自建立 SQLite 连接且无 WAL/busy_timeout → 单例连接 + WAL + 移出 UI isolate
+  - "音量键翻页"开关不生效，且关闭后仍吞掉系统音量键
+  - 合成过渡页污染总页数（43 页章节显示 1/44，读完仅 95%）
+- **修复 (P2/P3)**: 共 25 项 + 死代码清理
+  - async 后使用 `context`（19 处）、预加载闭包代次号、非原子写入改原子 upsert、控制器补 dispose
+  - 切 Tab 状态保留（`IndexedStack`）、搜索无限加载/防抖/过期响应、收藏失败态、详情页 N+1 改批量查询
+  - 控制栏动画失效、切换阅读方向后页码不重映射、响应式断点（横屏手机不再误用平板布局）
+  - 删除约 700 行死代码；`dart analyze --fatal-infos` 192 项 → **0**；`flutter test` 9/9 通过
+- **新增**
+  - **阅读器章节目录**：底部弹层直接切章，无需退出阅读器
+  - **常驻极细进度条**（2px）：不呼出控制栏也能看到阅读进度；滑杆轨道加粗至 6px
+  - 阅读器设置面板宽度自适应（原固定 350dp，在 360dp 宽手机上盖住 97%）
+  - 搜索提交后收起 Hero 区，把首屏让给搜索结果
+  - 章节过渡对话框与章节目录改为主题色，浅色/深色/纯黑自动跟随
+  - GitHub Actions CI（`flutter analyze` + `flutter test`，锁定 Flutter 3.47.5）
+  - release 开启 R8 压缩与资源裁剪（新增 `android/app/proguard-rules.pro`）
+- **其他**
+  - 仓库卫生：`pubspec.lock` 纳入版本控制；停止追踪 `android/local.properties` 与构建产物
+  - README 截图改为仓库内置 `docs/screenshots/`，不再依赖 GitHub 外链
+
 ## v0.1.26
 
 - **修复**: 阅读器休眠恢复后预加载失效，翻页黑屏问题。新增生命周期监听，应用回到前台时清空预加载记录并重新触发预加载

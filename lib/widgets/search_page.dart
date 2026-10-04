@@ -196,29 +196,38 @@ class _SearchPageState extends State<SearchPage>
               ),
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  // 已搜索后收紧留白，把首屏让给搜索结果（好用优先）。
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    _hasSearched ? 6 : 20,
+                    20,
+                    _hasSearched ? 12 : 20,
+                  ),
                   child: FadeTransition(
                     opacity: _fadeAnimation,
                     child: Column(
                       children: [
-                        const SizedBox(height: 20),
-                        const Text(
-                          '✨ 搜本站',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w300,
+                        if (!_hasSearched) ...[
+                          const SizedBox(height: 20),
+                          const Text(
+                            '✨ 搜本站',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w300,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '输入关键词，或作者',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
+                          const SizedBox(height: 8),
+                          const Text(
+                            '输入关键词，或作者',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 40),
+                          const SizedBox(height: 40),
+                        ] else
+                          const SizedBox(height: 6),
 
                         // 搜索框
                         Container(

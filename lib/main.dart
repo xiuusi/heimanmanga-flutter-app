@@ -115,9 +115,13 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
 
       cardTheme: CardThemeData(
         elevation: 2,
+        // 浅色主题下卡片与（带主色 tint 的）背景对比很弱，显式给表面色 + 极细描边，
+        // 保证卡片边界"看得清"（好用优先）。
+        color: colorScheme.surfaceContainerLow,
         shadowColor: Colors.black.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colorScheme.outlineVariant),
         ),
         clipBehavior: Clip.antiAlias,
       ),
@@ -217,6 +221,8 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
         shadowColor: Colors.black.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
+          // 深色（含纯黑模式）下同样用描边保证卡片边界可见。
+          side: BorderSide(color: colorScheme.outlineVariant),
         ),
         clipBehavior: Clip.antiAlias,
         color: surface,

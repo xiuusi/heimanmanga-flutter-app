@@ -221,11 +221,36 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
                     _navigateToPage(newPage);
                   },
                   onSettingsTap: _controller.showSettings,
+                  onChaptersTap: () => _showChapterSheet(context),
                   interactive: _controller.showControls,
                 ),
                 ReaderSettingsPanel(
                   controller: _controller,
                   animationController: _settingsAnimationController,
+                ),
+                // 常驻极细进度条：不呼出控件也能一眼看到读到哪（好用优先）。
+                // Positioned 必须是 Stack 的直接子节点，IgnorePointer 放在其 child 内。
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: SizedBox(
+                      height: 2,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: _readingProgress,
+                          child: Container(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 if (_controller.isLoadingNextChapter)
                   const ReaderLoadingOverlay(),
@@ -349,6 +374,85 @@ class _EnhancedReaderPageState extends State<EnhancedReaderPage>
       targetIndex,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
+    );
+  }
+
+  /// 阅读进度 0..1，用于底部常驻细进度条。
+  double get _readingProgress {
+    final total = _controller.realPageCount;
+    if (total <= 0) return 0;
+    return ((_controller.currentPage + 1) / total).clamp(0.0, 1.0);
+  }
+
+  /// 章节目录（底部弹层）：选中即切换章节。
+  /// 原先阅读器内没有任何换章入口，必须退出到详情页再进，这是核心可用性缺口。
+  void _showChapterSheet(BuildContext context) {
+    final chapters = widget.chapters;
+    if (chapters.isEmpty) return;
+    final currentIndex = _controller.currentChapterIndex;
+    // 全部取主题色：浅色/深色/纯黑模式都会自动跟随。
+    // （阅读器正文恒为黑底是刻意的沉浸式设计，但弹层属于 Material 表面，
+    //   必须跟主题走，否则浅色模式下会出现"黑弹窗"。）
+    final scheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: scheme.surfaceContainerLow,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      builder: (sheetContext) {
+        final sheetScheme = Theme.of(sheetContext).colorScheme;
+        return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 16),
+          itemCount: chapters.length,
+          itemBuilder: (listContext, index) {
+            final chapter = chapters[index];
+            final isCurrent = index == currentIndex;
+            return ListTile(
+              dense: true,
+              selected: isCurrent,
+              selectedTileColor: sheetScheme.primary.withValues(alpha: 0.10),
+              leading: CircleAvatar(
+                radius: 14,
+                backgroundColor: isCurrent
+                    ? sheetScheme.primary
+                    : sheetScheme.surfaceContainerHighest,
+                child: Text(
+                  '${chapter.number}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isCurrent
+                        ? sheetScheme.onPrimary
+                        : sheetScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              title: Text(
+                chapter.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+                  color: isCurrent
+                      ? sheetScheme.primary
+                      : sheetScheme.onSurface,
+                ),
+              ),
+              trailing: isCurrent
+                  ? Icon(Icons.play_arrow, size: 18, color: sheetScheme.primary)
+                  : null,
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _controller.switchToChapter(context, index);
+              },
+            );
+          },
+        );
+      },
     );
   }
 
