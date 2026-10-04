@@ -8,17 +8,18 @@ class ResponsiveLayout {
     return size.width > size.height;
   }
 
-  /// 检查当前是否为平板模式（横屏时使用侧边栏）
+  /// 检查当前是否为平板模式
+  ///
+  /// 以宽度（最短边 >= 600dp，Material 断点）判定，而非屏幕方向：
+  /// 任何横屏手机的最短边都远小于 600dp，不应被当作平板。
   static bool isTablet(BuildContext context) {
-    return isLandscape(context);
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 
-  /// 检查当前是否为大平板模式（横屏且宽度相对较大）
+  /// 检查当前是否为大平板模式（本身是平板且横向宽度 >= 1024dp）
   static bool isLargeTablet(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final aspectRatio = size.width / size.height;
-    // 横屏且宽高比大于1.3（相对较宽的横屏）
-    return isLandscape(context) && aspectRatio > 1.3;
+    return isTablet(context) && size.width >= 1024;
   }
 
   /// 宽度是否足够启用侧边栏布局（>= 600dp）
@@ -85,11 +86,11 @@ class TabletLayoutBuilder extends StatelessWidget {
   final Widget Function(BuildContext context)? largeTabletBuilder;
 
   const TabletLayoutBuilder({
-    Key? key,
+    super.key,
     required this.mobileBuilder,
     required this.tabletBuilder,
     this.largeTabletBuilder,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -115,9 +116,9 @@ class ResponsiveBuilder extends StatelessWidget {
   final Widget Function(BuildContext context, ScreenSize screenSize) builder;
 
   const ResponsiveBuilder({
-    Key? key,
+    super.key,
     required this.builder,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

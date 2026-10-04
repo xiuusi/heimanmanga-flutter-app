@@ -8,10 +8,10 @@ class ReaderSettingsPanel extends StatelessWidget {
   final AnimationController animationController;
 
   const ReaderSettingsPanel({
-    Key? key,
+    super.key,
     required this.controller,
     required this.animationController,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

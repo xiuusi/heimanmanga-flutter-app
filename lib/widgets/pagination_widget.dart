@@ -47,6 +47,7 @@ class PaginationWidget extends StatelessWidget {
                 onPressed: currentPage > 1 ? () => onPageChanged(currentPage - 1) : null,
                 icon: const Icon(Icons.chevron_left),
                 color: currentPage > 1 ? primary : Colors.grey,
+                tooltip: '上一页',
               ),
 
               // 页码按钮
@@ -57,6 +58,7 @@ class PaginationWidget extends StatelessWidget {
                 onPressed: currentPage < totalPages ? () => onPageChanged(currentPage + 1) : null,
                 icon: const Icon(Icons.chevron_right),
                 color: currentPage < totalPages ? primary : Colors.grey,
+                tooltip: '下一页',
               ),
             ],
           ),

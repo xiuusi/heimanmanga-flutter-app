@@ -10,9 +10,21 @@ import 'services/api_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await ThemeManager().loadThemeMode();
+  // P2-21：启动期这两个 await 都必须容错 —— 任一异常若向外抛出，
+  // runApp 就永远不会执行，应用会一直停在启动画面。
+  // 两者都很快（读 SharedPreferences / 平台包信息），且必须早于首帧的
+  // 首次网络请求（User-Agent 需要在此之前就绪）。
+  try {
+    await ThemeManager().loadThemeMode();
+  } catch (e) {
+    debugPrint('警告: 加载主题设置失败，使用默认主题 - $e');
+  }
 
-  await MangaApiService.initUserAgent();
+  try {
+    await MangaApiService.initUserAgent();
+  } catch (e) {
+    debugPrint('警告: 初始化 User-Agent 失败 - $e');
+  }
 
   runApp(const MangaReaderApp());
 
@@ -27,7 +39,7 @@ void main() async {
 }
 
 class MangaReaderApp extends StatefulWidget {
-  const MangaReaderApp({Key? key}) : super(key: key);
+  const MangaReaderApp({super.key});
 
   @override
   State<MangaReaderApp> createState() => _MangaReaderAppState();
@@ -103,7 +115,7 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
 
       cardTheme: CardThemeData(
         elevation: 2,
-        shadowColor: Colors.black.withOpacity(0.1),
+        shadowColor: Colors.black.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -202,7 +214,7 @@ class _MangaReaderAppState extends State<MangaReaderApp> {
 
       cardTheme: CardThemeData(
         elevation: 2,
-        shadowColor: Colors.black.withOpacity(0.3),
+        shadowColor: Colors.black.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -298,28 +310,14 @@ class _CustomPageTransitionsBuilder extends PageTransitionsBuilder {
 
     final routeName = route.settings.name;
 
+    // P2-25：只有通过名字标记的路由才会走到这里；漫画详情页的
+    // MaterialPageRoute 已带 `RouteSettings(name: 'manga_detail')`。
+    // 原先还有一个 'search' 分支，但搜索是底部 Tab（没有对应路由），
+    // 永远不会命中，已作为死代码移除。
     if (routeName?.contains('detail') == true) {
       return PageTransitions.mangaPageTransition(child, context, animation);
-    } else if (routeName?.contains('search') == true) {
-      return PageTransitions.slideTransition(
-        SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.0, 1.0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-          )),
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
-        ),
-        context,
-        animation,
-      );
-    } else {
-      return PageTransitions.scaleSlideTransition(child, context, animation);
     }
+
+    return PageTransitions.scaleSlideTransition(child, context, animation);
   }
 }

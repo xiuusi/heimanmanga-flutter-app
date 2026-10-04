@@ -20,9 +20,15 @@
 
 ---
 
-## 待办 (后续版本)
+## 已完成 (v0.1.26)
 
 ### 阅读器页面进一步拆分
-- **位置**: `lib/widgets/enhanced_reader_page.dart` (674 行)
-- **说明**: 可拆分为手势处理 / 页面渲染 / 工具栏等独立组件
+- ✅ **已随 v0.1.26 发布**：`lib/widgets/enhanced_reader_page.dart` 已由 674 行精简至约 371 行
+- 拆分结果：`reader_page_renderer.dart`（单页/双页/过渡页渲染）、
+  `reader_controls.dart`（顶部栏 + 底部进度条）、`reader_status_widgets.dart`（加载态/错误态）
 
+---
+
+## 待办 (后续版本)
+
+- 暂无新增功能项；后续质量改进可参考 `CODE_REVIEW.md` 的 P2/P3 列表（死代码清理、测试覆盖、仓库卫生等）

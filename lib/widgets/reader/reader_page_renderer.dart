@@ -18,7 +18,7 @@ class ReaderImageContent extends StatelessWidget {
   final BuildContext parentContext;
 
   const ReaderImageContent({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.controller,
     required this.parentContext,
@@ -27,7 +27,7 @@ class ReaderImageContent extends StatelessWidget {
     this.groupIndex,
     this.pageInGroup,
     this.applyTransform = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -39,9 +39,11 @@ class ReaderImageContent extends StatelessWidget {
         ? {'User-Agent': MangaApiService.userAgent}
         : null;
 
-    int actualPageIndex = pageIndex ?? controller.imageUrls.indexOf(imageUrl);
-    if (actualPageIndex == -1) {
-      actualPageIndex = 0;
+    // 找不到 URL（例如图片列表刚被替换）时不要退化成 0 —— 那会与真正的第 0 页
+    // 共用同一份缩放/平移状态。退化到当前页，状态键仍然唯一（P3）。
+    var actualPageIndex = pageIndex ?? controller.imageUrls.indexOf(imageUrl);
+    if (actualPageIndex < 0) {
+      actualPageIndex = controller.currentPage;
     }
 
     final stateKey = controller.getPageStateKey(
@@ -98,8 +100,8 @@ class ReaderImageContent extends StatelessWidget {
           );
           return Transform(
             transform: Matrix4.identity()
-              ..translate(s.panOffset.dx, s.panOffset.dy)
-              ..scale(s.scale),
+              ..translateByDouble(s.panOffset.dx, s.panOffset.dy, 0.0, 1.0)
+              ..scaleByDouble(s.scale, s.scale, s.scale, 1.0),
             child: imageWidget,
           );
         },
@@ -117,12 +119,12 @@ class ReaderImagePage extends StatelessWidget {
   final int? pageIndex;
 
   const ReaderImagePage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.controller,
     required this.parentContext,
     this.pageIndex,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -149,13 +151,13 @@ class ReaderDoublePage extends StatelessWidget {
   final Widget transitionPage;
 
   const ReaderDoublePage({
-    Key? key,
+    super.key,
     required this.group,
     required this.controller,
     required this.parentContext,
     required this.transitionPage,
     this.groupIndex,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -177,20 +179,25 @@ class ReaderDoublePage extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _buildPageInGroup(
-              group, leftPageIndex, isRTL,
-              alignment: Alignment.centerRight,
-              groupIndex: actualGroupIndex,
-              applyTransform: false,
+            // P2-7：放大左半页时不能画到右半页上。
+            child: ClipRect(
+              child: _buildPageInGroup(
+                group, leftPageIndex, isRTL,
+                alignment: Alignment.centerRight,
+                groupIndex: actualGroupIndex,
+                applyTransform: false,
+              ),
             ),
           ),
           Container(width: 1.51, color: Colors.black),
           Expanded(
-            child: _buildPageInGroup(
-              group, rightPageIndex, isRTL,
-              alignment: Alignment.centerLeft,
-              groupIndex: actualGroupIndex,
-              applyTransform: false,
+            child: ClipRect(
+              child: _buildPageInGroup(
+                group, rightPageIndex, isRTL,
+                alignment: Alignment.centerLeft,
+                groupIndex: actualGroupIndex,
+                applyTransform: false,
+              ),
             ),
           ),
         ],
@@ -201,11 +208,14 @@ class ReaderDoublePage extends StatelessWidget {
       listenable: controller.pageTransformManager,
       builder: (context, _) {
         final s = controller.pageTransformManager.getState(stateKey);
-        return Transform(
-          transform: Matrix4.identity()
-            ..translate(s.panOffset.dx, s.panOffset.dy)
-            ..scale(s.scale),
-          child: doublePageContent,
+        // P2-7：整体变换后再裁一次，避免放大后溢出到屏幕外。
+        return ClipRect(
+          child: Transform(
+            transform: Matrix4.identity()
+              ..translateByDouble(s.panOffset.dx, s.panOffset.dy, 0.0, 1.0)
+              ..scaleByDouble(s.scale, s.scale, s.scale, 1.0),
+            child: doublePageContent,
+          ),
         );
       },
     );
@@ -241,13 +251,13 @@ class ReaderTransitionPage extends StatelessWidget {
   final BuildContext parentContext;
 
   const ReaderTransitionPage({
-    Key? key,
+    super.key,
     required this.controller,
     required this.chapters,
     required this.mangaId,
     required this.onGoBack,
     required this.parentContext,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

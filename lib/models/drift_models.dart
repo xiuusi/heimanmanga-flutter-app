@@ -95,7 +95,24 @@ class Favorites extends Table {
 /// 数据库定义
 @DriftDatabase(tables: [MangaProgresses, ChapterProgresses, Favorites])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase._internal() : super(_openConnection());
+
+  /// 进程内唯一实例。
+  ///
+  /// 每个 [AppDatabase] 都会在同一个 .db 文件上打开一条独立的 SQLite 连接：
+  /// 之前"阅读进度"和"收藏"各自 `AppDatabase()`，两条连接并发写会触发
+  /// `SQLITE_BUSY: database is locked`，而阅读器侧会把该异常吞掉，
+  /// 造成进度静默丢失（P1-3）。改为全局单例后由同一连接串行化写入。
+  static AppDatabase? _shared;
+
+  static AppDatabase get instance => _shared ??= AppDatabase._internal();
+
+  /// 关闭共享连接（测试或需要彻底释放时使用）。
+  static Future<void> closeShared() async {
+    final db = _shared;
+    _shared = null;
+    await db?.close();
+  }
 
   @override
   int get schemaVersion => 3;
@@ -113,10 +130,23 @@ class AppDatabase extends _$AppDatabase {
   );
 }
 
+/// 打开数据库连接。
+///
+/// - `createInBackground`：SQLite 的打开/查询/提交都放到后台 isolate，
+///   避免建表、迁移与每次保存的 fsync 阻塞 UI 线程（P1-5）。
+/// - `journal_mode = WAL` + `busy_timeout`：WAL 允许读写并发（默认的
+///   delete 日志模式下读写互斥），busy_timeout 让写锁冲突时等待重试而不是
+///   立刻抛错（P1-3）。
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'reading_progress.db'));
-    return NativeDatabase(file);
+    return NativeDatabase.createInBackground(
+      file,
+      setup: (database) {
+        database.execute('PRAGMA journal_mode = WAL;');
+        database.execute('PRAGMA busy_timeout = 5000;');
+      },
+    );
   });
 }

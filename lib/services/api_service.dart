@@ -69,7 +69,7 @@ class MangaApiService {
     } catch (e) {
       // 设置失败，但不影响主要功能
       if (debugMode) {
-        print('[API] Failed to set global HttpClient user agent: $e');
+        debugPrint('[API] Failed to set global HttpClient user agent: $e');
       }
     }
   }
@@ -92,8 +92,8 @@ class MangaApiService {
 
     // 调试信息
     if (debugMode) {
-      print('[API] 请求头: $headers');
-      print('[API] User-Agent: $_userAgent');
+      debugPrint('[API] 请求头: $headers');
+      debugPrint('[API] User-Agent: $_userAgent');
     }
 
     return headers;
@@ -112,7 +112,7 @@ class MangaApiService {
 
       // Debug info: print request URL
       if (debugMode) {
-        print('[API] Request manga list URL: $url');
+        debugPrint('[API] Request manga list URL: $url');
       }
 
       final dio = DioService().dio;
@@ -123,15 +123,15 @@ class MangaApiService {
 
       // Debug info: print response details
       if (debugMode) {
-        print('[API] Response status: ${response.statusCode}');
-        print('[API] Response headers: ${response.headers.map}');
+        debugPrint('[API] Response status: ${response.statusCode}');
+        debugPrint('[API] Response headers: ${response.headers.map}');
         // Print first 200 chars of response body
         final responseData = response.data;
         final bodyStr = responseData is String ? responseData : responseData.toString();
         final bodyPreview = bodyStr.length > 200
             ? '${bodyStr.substring(0, 200)}...'
             : bodyStr;
-        print('[API] Response body preview: $bodyPreview');
+        debugPrint('[API] Response body preview: $bodyPreview');
       }
 
       if (response.statusCode == 200) {
@@ -143,9 +143,9 @@ class MangaApiService {
     } catch (e) {
       // Debug info: print exception
       if (debugMode) {
-        print('[API] Exception in getMangaList: $e');
+        debugPrint('[API] Exception in getMangaList: $e');
         if (e is Error) {
-          print('[API] Stack trace: ${e.stackTrace}');
+          debugPrint('[API] Stack trace: ${e.stackTrace}');
         }
       }
       throw Exception('Failed to load manga list: $e');
@@ -158,7 +158,7 @@ class MangaApiService {
 
       // Debug info: print request URL
       if (debugMode) {
-        print('[API] Request manga details URL: $url');
+        debugPrint('[API] Request manga details URL: $url');
       }
 
       final dio = DioService().dio;
@@ -169,15 +169,15 @@ class MangaApiService {
 
       // Debug info: print response details
       if (debugMode) {
-        print('[API] Response status: ${response.statusCode}');
-        print('[API] Response headers: ${response.headers.map}');
+        debugPrint('[API] Response status: ${response.statusCode}');
+        debugPrint('[API] Response headers: ${response.headers.map}');
         // Print first 200 chars of response body
         final responseData = response.data;
         final bodyStr = responseData is String ? responseData : responseData.toString();
         final bodyPreview = bodyStr.length > 200
             ? '${bodyStr.substring(0, 200)}...'
             : bodyStr;
-        print('[API] Response body preview: $bodyPreview');
+        debugPrint('[API] Response body preview: $bodyPreview');
       }
 
       if (response.statusCode == 200) {
@@ -189,9 +189,9 @@ class MangaApiService {
     } catch (e) {
       // Debug info: print exception
       if (debugMode) {
-        print('[API] Exception in getMangaById: $e');
+        debugPrint('[API] Exception in getMangaById: $e');
         if (e is Error) {
-          print('[API] Stack trace: ${e.stackTrace}');
+          debugPrint('[API] Stack trace: ${e.stackTrace}');
         }
       }
       throw Exception('Failed to load manga details: $e');
@@ -221,6 +221,7 @@ class MangaApiService {
   }
   
   /// 获取章节图片文件列表
+  /// 网络/HTTP 错误会抛出异常（与其余接口一致），只有服务端确实返回了空文件列表时才返回 []
   static Future<List<String>> getChapterImageFiles(String mangaId, String chapterId) async {
     try {
       final dio = DioService().dio;
@@ -232,16 +233,20 @@ class MangaApiService {
       if (response.statusCode == 200) {
         final jsonData = response.data is Map ? response.data as Map<String, dynamic> : json.decode(response.data as String);
         if (jsonData.containsKey('files') && jsonData['files'] is List) {
-          List<dynamic> files = jsonData['files'];
-          return files.cast<String>();
+          // 容忍列表中的非字符串元素，避免单个畸形元素导致整章解析失败
+          final List<dynamic> files = jsonData['files'];
+          return files.whereType<String>().toList();
         }
-      } else {
-        // 获取章节文件列表失败
+        // 服务端返回 200 但没有 files 字段：章节确实为空
+        return [];
       }
+      throw Exception('获取章节图片列表失败: ${response.statusCode}');
     } catch (e) {
-      // 获取章节文件列表异常
+      if (debugMode) {
+        debugPrint('[API] Exception in getChapterImageFiles: $e');
+      }
+      throw Exception('获取章节图片列表失败: $e');
     }
-    return [];
   }
 
   /// 搜索漫画

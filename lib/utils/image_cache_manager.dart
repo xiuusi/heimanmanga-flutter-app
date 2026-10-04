@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:io';
 import 'dart:math' as math;
 import '../services/api_service.dart';
 
 class ImageCacheManager {
   static const int maxCacheSize = 500; // 增加最大缓存图片数量
-  static const int maxCacheBytes = 300 * 1024 * 1024; // 增加到300MB
-  static const Duration cacheExpiration = Duration(days: 7);
+  static const int maxCacheBytes = 150 * 1024 * 1024; // 150MB（原 300MB 对低端设备有 OOM 风险）
+  static const int highDpiCacheBytes = 200 * 1024 * 1024; // 高分辨率设备的固定上限，避免无界增长
 
   // 新增性能配置
   static const int thumbnailCacheSize = 100; // 缩略图缓存大小
@@ -18,22 +17,16 @@ class ImageCacheManager {
   static void initializeCache() {
     try {
       // 配置网络图片缓存（使用默认设置）
-      if (PaintingBinding.instance != null) {
-        PaintingBinding.instance.imageCache.maximumSize = maxCacheSize;
-        PaintingBinding.instance.imageCache.maximumSizeBytes = maxCacheBytes;
-      }
+      // PaintingBinding.instance 是非空单例，无需判空（原判空会被分析器判为恒真）。
+      PaintingBinding.instance.imageCache.maximumSize = maxCacheSize;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = maxCacheBytes;
 
       // 配置CachedNetworkImage缓存
       _configureCachedNetworkImage();
 
       // 延迟检测设备性能（安全的方式）
-      Future.delayed(Duration(milliseconds: 100), () {
+      Future.delayed(const Duration(milliseconds: 100), () {
         _configureForDevicePerformance();
-      });
-
-      // 延迟预热缓存
-      Future.delayed(const Duration(seconds: 2), () {
-        _preheatCache();
       });
     } catch (e) {
       // 初始化缓存时出错
@@ -42,21 +35,10 @@ class ImageCacheManager {
 
   // 根据设备性能配置缓存
   static void _configureForDevicePerformance() {
-    // 安全地延迟执行以确保WidgetsBinding已初始化
-    if (WidgetsBinding.instance != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _performDeviceConfiguration();
-      });
-    } else {
-      // 如果WidgetsBinding还没有准备好，使用异步延迟
-      Future.delayed(Duration.zero, () {
-        if (WidgetsBinding.instance != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _performDeviceConfiguration();
-          });
-        }
-      });
-    }
+    // WidgetsBinding.instance 同样是非空单例，直接注册帧后回调即可。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _performDeviceConfiguration();
+    });
   }
 
   // 实际执行设备配置的方法
@@ -69,21 +51,20 @@ class ImageCacheManager {
         PaintingBinding.instance.imageCache.maximumSize = lowMemoryCacheSize;
         PaintingBinding.instance.imageCache.maximumSizeBytes = lowMemoryCacheBytes;
       } else if (devicePixelRatio > 2.0) {
-        // 高分辨率设备，增加缓存大小
-        PaintingBinding.instance.imageCache.maximumSize = maxCacheSize + 200;
-        PaintingBinding.instance.imageCache.maximumSizeBytes = maxCacheBytes + 100 * 1024 * 1024;
+        // 高分辨率设备：适度提高上限，但有固定上限（不再叠加 100MB 无界增长）
+        PaintingBinding.instance.imageCache.maximumSize = maxCacheSize + 100;
+        PaintingBinding.instance.imageCache.maximumSizeBytes = highDpiCacheBytes;
       }
     } catch (e) {
       // 如果配置失败，使用默认设置
     }
   }
 
-  // 检测是否为低端设备
+  // 检测是否为低端设备（仅依据设备像素比，统一所有调用点的判断口径）
   static bool _isLowEndDevice() {
-    // 简单的低端设备检测逻辑
     try {
       final devicePixelRatio = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-      return devicePixelRatio < 1.5 || Platform.isIOS; // iOS设备通常内存管理更严格
+      return devicePixelRatio < 1.5;
     } catch (e) {
       return false; // 如果无法获取设备信息，默认返回false
     }
@@ -121,36 +102,10 @@ class ImageCacheManager {
       if (currentUsage > maxUsage * 0.8) {
         PaintingBinding.instance.imageCache.clear();
         PaintingBinding.instance.imageCache.clearLiveImages();
-
-        // 清理旧的缓存文件
-        await _clearOldCacheFiles();
       }
     } catch (e) {
       // 智能缓存清理失败
     }
-  }
-
-  // 清理旧的缓存文件
-  static Future<void> _clearOldCacheFiles() async {
-    try {
-      // 这里可以实现具体的文件清理逻辑
-      // 例如：删除超过30天的缓存文件
-    } catch (e) {
-      // 清理旧缓存文件失败
-    }
-  }
-
-  // 预热缓存
-  static void _preheatCache() {
-    // 预加载常用图片
-    Future.delayed(const Duration(seconds: 2), () {
-      _preloadCommonImages();
-    });
-  }
-
-  static Future<void> _preloadCommonImages() async {
-    // 预加载常用图片的逻辑
-    // 例如：应用图标、默认图片等
   }
 
   // 预加载图片
@@ -186,19 +141,6 @@ class ImageCacheManager {
       'maximumSize': imageCache.maximumSize,
       'maximumSizeBytes': imageCache.maximumSizeBytes,
     };
-  }
-
-  // 检查是否为低内存设备
-  static bool isLowMemoryDevice() {
-    // 这里可以根据实际需求添加内存检测逻辑
-    // 简单的判断依据：设置较低的缓存阈值
-    return false; // 默认返回false，实际应用中可以根据设备情况调整
-  }
-
-  // 适配低内存设备的配置
-  static void configureForLowMemory() {
-    PaintingBinding.instance.imageCache.maximumSize = 50;
-    PaintingBinding.instance.imageCache.maximumSizeBytes = 50 * 1024 * 1024; // 50MB
   }
 }
 
@@ -284,7 +226,7 @@ class OptimizedCachedNetworkImage extends StatelessWidget {
               child: CircularProgressIndicator(
                 strokeWidth: size / 8,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  Theme.of(context).primaryColor.withOpacity(0.5),
+                  Theme.of(context).primaryColor.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -363,8 +305,8 @@ class OptimizedCachedNetworkImage extends StatelessWidget {
     if (width != null) {
       try {
         final devicePixelRatio = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-        // 根据设备性能调整缓存大小
-        final multiplier = _isLowEndDevice() ? 1.0 : math.min(devicePixelRatio, 2.0);
+        // 根据设备性能调整缓存大小（复用统一的低端设备判断）
+        final multiplier = ImageCacheManager._isLowEndDevice() ? 1.0 : math.min(devicePixelRatio, 2.0);
         return (width! * multiplier).round();
       } catch (e) {
         return width?.round(); // 如果获取失败，返回原始宽度
@@ -378,7 +320,7 @@ class OptimizedCachedNetworkImage extends StatelessWidget {
     if (height != null) {
       try {
         final devicePixelRatio = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-        final multiplier = _isLowEndDevice() ? 1.0 : math.min(devicePixelRatio, 2.0);
+        final multiplier = ImageCacheManager._isLowEndDevice() ? 1.0 : math.min(devicePixelRatio, 2.0);
         return (height! * multiplier).round();
       } catch (e) {
         return height?.round(); // 如果获取失败，返回原始高度
@@ -386,46 +328,56 @@ class OptimizedCachedNetworkImage extends StatelessWidget {
     }
     return null;
   }
-
-  bool _isLowEndDevice() {
-    try {
-      final devicePixelRatio = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
-      return devicePixelRatio < 1.5;
-    } catch (e) {
-      return false; // 默认不是低端设备
-    }
-  }
 }
 
 // 图片预加载管理器
 class ImagePreloadManager {
   static final Map<String, Future<void>> _preloadCache = {};
 
+  // 最多同时跟踪的预加载任务数，防止 map 无界增长
+  static const int _maxPreloadCacheSize = 32;
+
+  // 记录一个在途任务；完成后立即移除，因此 map 只保存"正在进行中"的预加载
+  static void _trackPreload(String imageUrl, Future<void> future) {
+    if (_preloadCache.length >= _maxPreloadCacheSize &&
+        !_preloadCache.containsKey(imageUrl)) {
+      // 淘汰最旧的条目
+      _preloadCache.remove(_preloadCache.keys.first);
+    }
+    _preloadCache[imageUrl] = future;
+    future.whenComplete(() {
+      // 只有当前条目仍是这个 future 时才移除，避免误删后来重新加入的同名条目
+      if (identical(_preloadCache[imageUrl], future)) {
+        _preloadCache.remove(imageUrl);
+      }
+    });
+  }
+
   // 预加载单张图片
-  static Future<void> preloadImage(BuildContext context, String imageUrl) async {
-    // 检查是否已经在预加载缓存中
-    if (_preloadCache.containsKey(imageUrl)) {
-      return _preloadCache[imageUrl]!;
+  static Future<void> preloadImage(BuildContext context, String imageUrl) {
+    // 检查是否已经在预加载缓存中（并发去重）
+    final existing = _preloadCache[imageUrl];
+    if (existing != null) {
+      return existing;
     }
 
     final future = _performPreload(context, imageUrl);
-    _preloadCache[imageUrl] = future;
-
+    _trackPreload(imageUrl, future);
     return future;
   }
 
   // 智能预加载：检查缓存状态，避免重复加载
-  static Future<void> smartPreloadImage(BuildContext context, String imageUrl) async {
+  static Future<void> smartPreloadImage(BuildContext context, String imageUrl) {
     // 如果已经在预加载缓存中，直接返回
-    if (_preloadCache.containsKey(imageUrl)) {
-      return _preloadCache[imageUrl]!;
+    final existing = _preloadCache[imageUrl];
+    if (existing != null) {
+      return existing;
     }
 
     // 使用与首页相同的预加载策略
     // 让 CachedNetworkImage 自动处理缓存复用
     final future = _performPreload(context, imageUrl);
-    _preloadCache[imageUrl] = future;
-
+    _trackPreload(imageUrl, future);
     return future;
   }
 
@@ -436,7 +388,7 @@ class ImagePreloadManager {
         context,
       );
     } catch (e) {
-      _preloadCache.remove(imageUrl);
+      // 失败无需特殊处理：条目会在 whenComplete 中移除
     }
   }
 
@@ -451,20 +403,4 @@ class ImagePreloadManager {
     _preloadCache.clear();
   }
 
-  // 智能预加载（根据滚动方向预加载）
-  static Future<void> smartPreload(BuildContext context, List<String> imageUrls, int currentIndex) async {
-    // 预加载当前索引前后3张图片
-    final startIndex = math.max(0, currentIndex - 1);
-    final endIndex = math.min(imageUrls.length - 1, currentIndex + 3);
-
-    for (int i = startIndex; i <= endIndex; i++) {
-      if (i != currentIndex) {
-        final url = imageUrls[i];
-        // 延迟预加载，避免影响当前页面性能
-        Future.delayed(Duration(milliseconds: (i - startIndex) * 100), () {
-          preloadImage(context, url);
-        });
-      }
-    }
-  }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/manga.dart';
 import '../services/api_service.dart';
@@ -27,6 +29,12 @@ class _TagsPageState extends State<TagsPage> {
 
   final TextEditingController _searchController = TextEditingController();
 
+  /// 搜索防抖定时器：避免每次按键都发请求（P2-15）
+  Timer? _debounceTimer;
+
+  /// 标签搜索请求序号：丢弃过期响应（P2-15）
+  int _tagSearchRequestId = 0;
+
   @override
   void initState() {
     super.initState();
@@ -36,18 +44,28 @@ class _TagsPageState extends State<TagsPage> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
 
   void _onSearchChanged() {
-    final query = _searchController.text.trim();
-    if (query.isEmpty) {
-      _filterTagsByNamespace(_selectedNamespace);
-    } else {
-      _searchTags(query);
-    }
+    // 立即刷新清除按钮的显示状态，不发请求（P3）
+    setState(() {});
+
+    // 300ms 防抖：停止输入后才真正发起搜索（P2-15）
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      final query = _searchController.text.trim();
+      if (query.isEmpty) {
+        _filterTagsByNamespace(_selectedNamespace);
+      } else {
+        _searchTags(query);
+      }
+    });
   }
 
   Future<void> _loadNamespacesAndTags() async {
@@ -79,23 +97,33 @@ class _TagsPageState extends State<TagsPage> {
       return;
     }
 
+    final requestId = ++_tagSearchRequestId;
+
     try {
       final searchResults = await MangaApiService.searchTags(query);
+
+      // 过期响应直接丢弃，避免旧结果覆盖新输入（P2-15）
+      if (requestId != _tagSearchRequestId) return;
+      if (!mounted) return;
+
       setState(() {
         _filteredTags = searchResults
             .where((tag) => tag.count > 0)
             .toList();
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('搜索标签失败: $e')),
-        );
-      }
+      if (requestId != _tagSearchRequestId) return;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('搜索标签失败: $e')),
+      );
     }
   }
 
   void _filterTagsByNamespace(TagNamespace? namespace) {
+    // 回到分类浏览时，让在途的标签搜索响应失效（P2-15）
+    _tagSearchRequestId++;
+
     setState(() {
       if (namespace == null) {
         _filteredTags = _allTags
@@ -169,7 +197,7 @@ class _TagsPageState extends State<TagsPage> {
                 '标签描述：${_selectedTag!.name}',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                 ),
               ),
               const SizedBox(height: 8),
@@ -178,7 +206,7 @@ class _TagsPageState extends State<TagsPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                   side: BorderSide(
-                    color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
                     width: 1,
                   ),
                 ),
@@ -187,7 +215,7 @@ class _TagsPageState extends State<TagsPage> {
                   child: Text(
                     _selectedTag!.description!,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9),
                       height: 1.4,
                     ),
                   ),
@@ -222,7 +250,7 @@ class _TagsPageState extends State<TagsPage> {
                 '分类描述：${_selectedNamespace!.displayName}',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                 ),
               ),
               const SizedBox(height: 8),
@@ -231,7 +259,7 @@ class _TagsPageState extends State<TagsPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                   side: BorderSide(
-                    color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
                     width: 1,
                   ),
                 ),
@@ -240,7 +268,7 @@ class _TagsPageState extends State<TagsPage> {
                   child: Text(
                     _selectedNamespace!.description!,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9),
                       height: 1.4,
                     ),
                   ),
@@ -300,7 +328,8 @@ class _TagsPageState extends State<TagsPage> {
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: Colors.white,
+                  // 使用主题表面色，暗色模式下不再出现白底（P3）
+                  fillColor: Theme.of(context).colorScheme.surface,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 15,
@@ -336,7 +365,7 @@ class _TagsPageState extends State<TagsPage> {
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                           shadows: isSelected ? [
                             Shadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               offset: const Offset(0, 1),
                               blurRadius: 2,
                             ),
@@ -390,8 +419,8 @@ class _TagsPageState extends State<TagsPage> {
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.white.withOpacity(0.2)
-                                    : Colors.black.withOpacity(0.1),
+                                    ? Colors.white.withValues(alpha: 0.2)
+                                    : Colors.black.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -434,7 +463,8 @@ class _TagsPageState extends State<TagsPage> {
                       '${_selectedTag!.name} 相关漫画',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF333333),
+                            // 使用主题前景色，暗色模式下保持可读（P3）
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                     ),
                   ],
@@ -465,7 +495,7 @@ class _TagsPageState extends State<TagsPage> {
                   // 加载出错
                   if (snapshot.hasError) {
                     return SliverToBoxAdapter(
-                      child: Container(
+                      child: SizedBox(
                         height: 300,
                         child: Center(
                           child: Column(
@@ -495,10 +525,10 @@ class _TagsPageState extends State<TagsPage> {
                   }
                   // 加载成功但无数据
                   if (!snapshot.hasData || snapshot.data!.data.isEmpty) {
-                    return SliverToBoxAdapter(
-                      child: Container(
+                    return const SliverToBoxAdapter(
+                      child: SizedBox(
                         height: 200,
-                        child: const Center(
+                        child: Center(
                           child: Text('没有找到相关漫画。'),
                         ),
                       ),
@@ -510,10 +540,10 @@ class _TagsPageState extends State<TagsPage> {
                   final mangaList = _currentMangaResponse!.data;
 
                   if (mangaList.isEmpty) {
-                    return SliverToBoxAdapter(
-                      child: Container(
+                    return const SliverToBoxAdapter(
+                      child: SizedBox(
                         height: 200,
-                        child: const Center(
+                        child: Center(
                           child: Text('没有找到匹配的漫画。'),
                         ),
                       ),

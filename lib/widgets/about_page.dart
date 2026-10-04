@@ -20,11 +20,16 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   Future<void> _loadAppInfo() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    setState(() {
-      _appVersion = packageInfo.version;
-      _appName = packageInfo.appName;
-    });
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _appVersion = packageInfo.version;
+        _appName = packageInfo.appName;
+      });
+    } catch (e) {
+      debugPrint('警告: 加载应用信息失败 - $e');
+    }
   }
 
   Future<void> _launchGitHub() async {
@@ -56,7 +61,7 @@ class _AboutPageState extends State<AboutPage> {
                 color: Theme.of(context).colorScheme.primaryContainer,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -93,7 +98,7 @@ class _AboutPageState extends State<AboutPage> {
             Text(
               '版本 $_appVersion',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 32),
@@ -136,21 +141,21 @@ class _AboutPageState extends State<AboutPage> {
             const SizedBox(height: 16),
 
             // 开发者信息
-            Card(
+            const Card(
               child: ListTile(
-                leading: const Icon(Icons.person),
-                title: const Text('开发者'),
-                subtitle: const Text('xiuusi'),
+                leading: Icon(Icons.person),
+                title: Text('开发者'),
+                subtitle: Text('xiuusi'),
               ),
             ),
             const SizedBox(height: 16),
 
             // 许可证信息
-            Card(
+            const Card(
               child: ListTile(
-                leading: const Icon(Icons.balance),
-                title: const Text('许可证'),
-                subtitle: const Text('MIT License'),
+                leading: Icon(Icons.balance),
+                title: Text('许可证'),
+                subtitle: Text('MIT License'),
               ),
             ),
           ],

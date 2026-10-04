@@ -11,7 +11,7 @@ class CarouselWidgetKey extends GlobalKey<CarouselWidgetState> {
 }
 
 class CarouselWidget extends StatefulWidget {
-  const CarouselWidget({Key? key}) : super(key: key);
+  const CarouselWidget({super.key});
 
   @override
   State<CarouselWidget> createState() => CarouselWidgetState();
@@ -156,7 +156,6 @@ class CarouselWidgetState extends State<CarouselWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final isDesktop = screenWidth >= 800;
@@ -244,6 +243,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
                   left: 24,
                   child: _buildNavButton(
                     icon: Icons.arrow_back_ios_new_rounded,
+                    tooltip: '上一张',
                     onTap: () {
                       _stopAutoPlay();
                       _goToPrevPage();
@@ -257,6 +257,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
                   right: 24,
                   child: _buildNavButton(
                     icon: Icons.arrow_forward_ios_rounded,
+                    tooltip: '下一张',
                     onTap: () {
                       _stopAutoPlay();
                       _goToNextPage();
@@ -274,19 +275,29 @@ class CarouselWidgetState extends State<CarouselWidget> {
     );
   }
 
-  Widget _buildNavButton({required IconData icon, required VoidCallback onTap}) {
-    return Material(
-      color: Colors.black.withOpacity(0.3),
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        hoverColor: Theme.of(context).colorScheme.primary.withOpacity(0.8),
-        child: Container(
-          width: 40, // 按钮从 48 改为 40
-          height: 40,
-          alignment: Alignment.center,
-          child: Icon(icon, color: Colors.white, size: 20), // 图标缩小
+  Widget _buildNavButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
+    return Semantics(
+      button: true,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.3),
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            hoverColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+            child: Container(
+              width: 48, // 触摸目标 >= 48dp
+              height: 48,
+              alignment: Alignment.center,
+              child: Icon(icon, color: Colors.white, size: 20), // 图标缩小
+            ),
+          ),
         ),
       ),
     );
@@ -309,7 +320,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
             borderRadius: BorderRadius.circular(isDesktop ? 16 : 12), // 圆角稍微减小
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: isDesktop ? 12 : 8,
                 offset: const Offset(0, 4),
               ),
@@ -345,8 +356,8 @@ class CarouselWidgetState extends State<CarouselWidget> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withOpacity(0.1),
-                        Colors.black.withOpacity(0.7),
+                        Colors.black.withValues(alpha: 0.1),
+                        Colors.black.withValues(alpha: 0.7),
                       ],
                       stops: const [0.5, 0.75, 1.0],
                     ),
@@ -368,7 +379,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
                           fontWeight: FontWeight.bold,
                           height: 1.2,
                           shadows: [
-                            Shadow(blurRadius: 6, color: Colors.black.withOpacity(0.8), offset: const Offset(0, 1))
+                            Shadow(blurRadius: 6, color: Colors.black.withValues(alpha: 0.8), offset: const Offset(0, 1))
                           ]
                         ),
                         maxLines: 2,
@@ -398,7 +409,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
           width: isActive ? 24 : 6, // 指示器稍微变小
           height: 4,
           decoration: BoxDecoration(
-            color: isActive ? Theme.of(context).colorScheme.primary : Colors.grey.withOpacity(0.3),
+            color: isActive ? Theme.of(context).colorScheme.primary : Colors.grey.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(2),
           ),
         );
@@ -457,7 +468,7 @@ class CarouselWidgetState extends State<CarouselWidget> {
         }
       }
     } catch (e) {
-      if (mounted) _showErrorSnackBar(context, '处理链接失败: $e');
+      if (context.mounted) _showErrorSnackBar(context, '处理链接失败: $e');
     }
   }
 
@@ -476,7 +487,11 @@ class CarouselWidgetState extends State<CarouselWidget> {
       Navigator.of(context).pop();
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => MangaDetailPage(manga: manga)),
+        MaterialPageRoute(
+          builder: (context) => MangaDetailPage(manga: manga),
+          // 供 main.dart 按路由名匹配详情页专用过渡动画
+          settings: const RouteSettings(name: 'manga_detail'),
+        ),
       );
     } catch (e) {
       if (mounted && Navigator.of(context).canPop()) {

@@ -23,11 +23,20 @@ class _MangaListPageState extends State<MangaListPage> {
   MangaListResponse? _currentResponse;
   final CarouselWidgetKey _carouselKey = const CarouselWidgetKey();
 
+  /// P2：翻页时需要把列表滚回顶部，否则用户会停留在上一页的底部（分页控件附近）。
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     // 初始化时获取漫画列表数据
     _mangaListFuture = _fetchMangaList();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -39,6 +48,7 @@ class _MangaListPageState extends State<MangaListPage> {
         color: Theme.of(context).primaryColor,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         child: CustomScrollView(
+          controller: _scrollController,
           slivers: [
 
           // 轮播图
@@ -94,7 +104,7 @@ class _MangaListPageState extends State<MangaListPage> {
                 // 加载出错
                 if (snapshot.hasError) {
                   return SliverToBoxAdapter(
-                    child: Container(
+                    child: SizedBox(
                       height: 300,
                       child: Center(
                         child: Column(
@@ -124,10 +134,10 @@ class _MangaListPageState extends State<MangaListPage> {
                 }
                 // 加载成功但无数据
                 if (!snapshot.hasData || snapshot.data!.data.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: Container(
+                  return const SliverToBoxAdapter(
+                    child: SizedBox(
                       height: 200,
-                      child: const Center(
+                      child: Center(
                         child: Text('没有找到任何漫画。'),
                       ),
                     ),
@@ -139,10 +149,10 @@ class _MangaListPageState extends State<MangaListPage> {
                 final mangaList = _currentResponse!.data;
 
                 if (mangaList.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: Container(
+                  return const SliverToBoxAdapter(
+                    child: SizedBox(
                       height: 200,
-                      child: const Center(
+                      child: Center(
                         child: Text('没有找到匹配的漫画。'),
                       ),
                     ),
@@ -212,7 +222,16 @@ class _MangaListPageState extends State<MangaListPage> {
         _currentPage = page;
         _mangaListFuture = _fetchMangaList();
       });
+      _scrollToTop();
     }
+  }
+
+  /// 翻页后把列表滚回顶部（P2）。
+  void _scrollToTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
   }
 
   // 构建分页控制组件
@@ -435,7 +454,7 @@ class _MangaCardWidgetState extends State<MangaCardWidget>
         builder: (context, child) {
           return Card(
             elevation: _shadowAnimation.value,
-            shadowColor: Colors.black.withOpacity(0.2),
+            shadowColor: Colors.black.withValues(alpha: 0.2),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12.0),
             ),

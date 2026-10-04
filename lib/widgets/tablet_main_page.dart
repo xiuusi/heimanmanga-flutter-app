@@ -12,7 +12,7 @@ import 'main_navigation_page.dart';
 
 /// 平板模式主页面
 class TabletMainPage extends StatefulWidget {
-  const TabletMainPage({Key? key}) : super(key: key);
+  const TabletMainPage({super.key});
 
   @override
   State<TabletMainPage> createState() => _TabletMainPageState();
@@ -114,7 +114,13 @@ class _TabletMainPageState extends State<TabletMainPage> {
             child: Column(
               children: [
                 _buildAppBar(context),
-                Expanded(child: _pages[_currentIndex]),
+                // IndexedStack 保持各标签页挂载，避免切换时重建并丢失状态
+                Expanded(
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: _pages,
+                  ),
+                ),
               ],
             ),
           ),
@@ -151,7 +157,7 @@ class _TabletMainPageState extends State<TabletMainPage> {
 
 /// 响应式主页面 - 根据屏幕尺寸自动选择布局
 class ResponsiveMainPage extends StatelessWidget {
-  const ResponsiveMainPage({Key? key}) : super(key: key);
+  const ResponsiveMainPage({super.key});
 
   @override
   Widget build(BuildContext context) {

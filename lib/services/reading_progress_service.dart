@@ -64,6 +64,12 @@ abstract class ReadingProgressManager {
   /// 获取指定漫画和章节的阅读进度
   Future<ReadingProgress?> getProgress(String mangaId, {String? chapterId});
 
+  /// 批量获取指定漫画多个章节的阅读进度（一次查询，避免 N+1）
+  Future<Map<String, ReadingProgress>> getProgressForChapters(
+    String mangaId,
+    List<String> chapterIds,
+  );
+
   /// 标记章节为已阅读
   Future<void> markChapterAsRead({
     required String mangaId,
@@ -127,6 +133,14 @@ class ReadingProgressService {
   /// 获取阅读进度
   Future<ReadingProgress?> getProgress(String mangaId, {String? chapterId}) async {
     return await manager.getProgress(mangaId, chapterId: chapterId);
+  }
+
+  /// 批量获取指定漫画多个章节的阅读进度（避免逐章查询的 N+1）
+  Future<Map<String, ReadingProgress>> getProgressForChapters(
+    String mangaId,
+    List<String> chapterIds,
+  ) async {
+    return await manager.getProgressForChapters(mangaId, chapterIds);
   }
 
   /// 标记章节为已阅读

@@ -3,13 +3,14 @@ description: A manga reading application.
 version: 0.1.26+2
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.12.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   dio: ^5.0.0
   cached_network_image: ^3.3.0
+  flutter_cache_manager: ^3.4.5
   dynamic_color: ^1.7.1
   # Web optimizations
   flutter_web_plugins:

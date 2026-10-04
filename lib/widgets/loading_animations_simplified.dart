@@ -58,16 +58,27 @@ class LoadingAnimations {
   }
 
   // 漫画卡片骨架屏
-  static Widget mangaCardSkeleton({double width = 200, double height = 300}) {
+  // [context] 用于取主题表面色，避免暗色/OLED 模式下的白色闪烁
+  static Widget mangaCardSkeleton({
+    BuildContext? context,
+    double width = 200,
+    double height = 300,
+  }) {
+    final colorScheme = context == null ? null : Theme.of(context).colorScheme;
+    final cardColor = colorScheme?.surfaceContainerHighest ?? const Color(0xFFE0E0E0);
+    final blockColor = colorScheme != null
+        ? Color.alphaBlend(colorScheme.onSurface.withValues(alpha: 0.06), cardColor)
+        : const Color(0xFFBDBDBD);
+
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 2,
             offset: const Offset(0, 1),
           ),
@@ -79,7 +90,7 @@ class LoadingAnimations {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: blockColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
@@ -95,7 +106,7 @@ class LoadingAnimations {
                 Container(
                   height: 16,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: blockColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -104,7 +115,7 @@ class LoadingAnimations {
                   height: 12,
                   width: 80,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: blockColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -190,7 +201,7 @@ class _MangaGridSkeletonState extends State<_MangaGridSkeleton>
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: gridDelegate,
             itemCount: widget.count,
-            itemBuilder: (_, __) => LoadingAnimations.mangaCardSkeleton(),
+            itemBuilder: (_, __) => LoadingAnimations.mangaCardSkeleton(context: context),
           ),
         );
       },
@@ -342,7 +353,7 @@ class _PulseLoaderState extends State<_PulseLoader>
                 height: widget.size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: widget.color.withOpacity(_opacityAnimation.value),
+                  color: widget.color.withValues(alpha: _opacityAnimation.value),
                 ),
               ),
             ),
@@ -435,7 +446,7 @@ class _DotLoaderState extends State<_DotLoader>
               height: widget.dotSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: widget.color.withOpacity(_animations[index].value),
+                color: widget.color.withValues(alpha: _animations[index].value),
               ),
             );
           },

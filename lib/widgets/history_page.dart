@@ -5,7 +5,6 @@ import '../services/api_service.dart';
 import '../services/drift_reading_progress_manager.dart';
 import '../utils/image_cache_manager.dart';
 import 'enhanced_reader_page.dart';
-import 'manga_detail_page.dart';
 import 'loading_animations_simplified.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -22,6 +21,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasReachedEnd = false;
+  bool _hasError = false;
   final Map<String, Manga> _mangaCache = {};
   static const int _pageSize = 20;
   int _loadedCount = 0;
@@ -30,9 +30,6 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
 
   // 记录上次刷新时间，避免过于频繁的刷新
   DateTime? _lastRefreshTime;
-
-  // 记录页面是否可见
-  bool _isPageVisible = false;
 
   @override
   void initState() {
@@ -81,27 +78,34 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
     } else {
       setState(() {
         _isLoading = true;
+        _hasError = false;
       });
     }
 
     try {
       // 计算偏移量：加载更多时使用当前已加载数量作为偏移量
       final offset = loadMore ? _loadedCount : 0;
-      final limit = _pageSize;
+      const limit = _pageSize;
       debugPrint('Loading history: loadMore=$loadMore, offset=$offset, limit=$limit');
       final recentRead = await _progressService.getRecentRead(limit: limit, offset: offset);
       debugPrint('Loaded ${recentRead.length} history records');
 
+      if (!mounted) return;
+
       if (loadMore) {
         setState(() {
-          // 直接追加数据（数据库查询已经去重）
-          _historyList.addAll(recentRead);
-          _loadedCount = _historyList.length;
+          // 分页期间阅读/删除会移动窗口，返回结果可能与已加载记录重复（P2-19），
+          // 这里按 mangaId 去重后再追加，保持原有列表顺序
+          final existingIds = _historyList.map((p) => p.mangaId).toSet();
+          final newItems = recentRead.where((p) => !existingIds.contains(p.mangaId)).toList();
+          _historyList.addAll(newItems);
+          // 偏移量按数据库实际返回条数推进，避免因去重而反复拉取同一页
+          _loadedCount += recentRead.length;
           _isLoadingMore = false;
 
           // 如果加载的数据少于_pageSize，说明已经到达末尾
           _hasReachedEnd = recentRead.length < _pageSize;
-          debugPrint('Loaded more: ${recentRead.length} new items, total: $_loadedCount, reached end: $_hasReachedEnd');
+          debugPrint('Loaded more: ${recentRead.length} new items, total: ${_historyList.length}, reached end: $_hasReachedEnd');
         });
       } else {
         // 立即显示历史记录列表，不等待漫画详情
@@ -121,9 +125,12 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
       _preloadImages(recentRead);
     } catch (e) {
       debugPrint('Failed to load history: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _isLoadingMore = false;
+        // 首次加载失败时显示独立的错误态，而不是"暂无阅读历史"（P2-19）
+        _hasError = !loadMore;
       });
     }
   }
@@ -150,6 +157,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
     if (confirm != true) return;
 
     await _progressService.deleteMangaProgress(mangaId);
+    if (!mounted) return;
     setState(() {
       _historyList.removeWhere((p) => p.mangaId == mangaId);
       _mangaCache.remove(mangaId);
@@ -253,6 +261,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
       );
 
       // 跳转到阅读页面
+      if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => EnhancedReaderPage(
@@ -264,6 +273,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
       );
     } catch (e) {
       // 如果获取失败，显示错误提示
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('加载漫画详情失败: $e')),
       );
@@ -292,6 +302,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
     if (confirmed == true) {
       try {
         await _progressService.clearAllHistory();
+        if (!mounted) return;
         setState(() {
           _historyList.clear();
           _mangaCache.clear();
@@ -300,11 +311,34 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
           const SnackBar(content: Text('历史记录已清除')),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('清除失败: $e')),
         );
       }
     }
+  }
+
+  // 加载失败的错误态（区别于"暂无阅读历史"空态，并提供重试入口）（P2-19）
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text(
+            '加载阅读历史失败',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => _loadHistory(),
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSkeletonLoading() {
@@ -321,7 +355,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
       animation: _skeletonAnimationController,
       builder: (context, child) {
         final animationValue = _skeletonAnimationController.value;
-        final shimmerColor = Colors.grey[300]!.withOpacity(0.7);
+        final shimmerColor = Colors.grey[300]!.withValues(alpha: 0.7);
         final highlightColor = Colors.grey[100]!;
 
         return Card(
@@ -339,11 +373,11 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                     color: shimmerColor,
                     borderRadius: BorderRadius.circular(8),
                     gradient: LinearGradient(
-                      begin: Alignment(-1.0, -1.0),
-                      end: Alignment(1.0, 1.0),
+                      begin: const Alignment(-1.0, -1.0),
+                      end: const Alignment(1.0, 1.0),
                       colors: [
                         shimmerColor,
-                        highlightColor.withOpacity(animationValue),
+                        highlightColor.withValues(alpha: animationValue),
                         shimmerColor,
                       ],
                       stops: const [0.0, 0.5, 1.0],
@@ -366,11 +400,11 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                           color: shimmerColor,
                           borderRadius: BorderRadius.circular(4),
                           gradient: LinearGradient(
-                            begin: Alignment(-1.0, -1.0),
-                            end: Alignment(1.0, 1.0),
+                            begin: const Alignment(-1.0, -1.0),
+                            end: const Alignment(1.0, 1.0),
                             colors: [
                               shimmerColor,
-                              highlightColor.withOpacity(animationValue),
+                              highlightColor.withValues(alpha: animationValue),
                               shimmerColor,
                             ],
                             stops: const [0.0, 0.5, 1.0],
@@ -388,11 +422,11 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                           color: shimmerColor,
                           borderRadius: BorderRadius.circular(4),
                           gradient: LinearGradient(
-                            begin: Alignment(-1.0, -1.0),
-                            end: Alignment(1.0, 1.0),
+                            begin: const Alignment(-1.0, -1.0),
+                            end: const Alignment(1.0, 1.0),
                             colors: [
                               shimmerColor,
-                              highlightColor.withOpacity(animationValue),
+                              highlightColor.withValues(alpha: animationValue),
                               shimmerColor,
                             ],
                             stops: const [0.0, 0.5, 1.0],
@@ -412,11 +446,11 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                               color: shimmerColor,
                               borderRadius: BorderRadius.circular(4),
                               gradient: LinearGradient(
-                                begin: Alignment(-1.0, -1.0),
-                                end: Alignment(1.0, 1.0),
+                                begin: const Alignment(-1.0, -1.0),
+                                end: const Alignment(1.0, 1.0),
                                 colors: [
                                   shimmerColor,
-                                  highlightColor.withOpacity(animationValue),
+                                  highlightColor.withValues(alpha: animationValue),
                                   shimmerColor,
                                 ],
                                 stops: const [0.0, 0.5, 1.0],
@@ -433,11 +467,11 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                               color: shimmerColor,
                               borderRadius: BorderRadius.circular(4),
                               gradient: LinearGradient(
-                                begin: Alignment(-1.0, -1.0),
-                                end: Alignment(1.0, 1.0),
+                                begin: const Alignment(-1.0, -1.0),
+                                end: const Alignment(1.0, 1.0),
                                 colors: [
                                   shimmerColor,
-                                  highlightColor.withOpacity(animationValue),
+                                  highlightColor.withValues(alpha: animationValue),
                                   shimmerColor,
                                 ],
                                 stops: const [0.0, 0.5, 1.0],
@@ -457,11 +491,11 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                           color: shimmerColor,
                           borderRadius: BorderRadius.circular(4),
                           gradient: LinearGradient(
-                            begin: Alignment(-1.0, -1.0),
-                            end: Alignment(1.0, 1.0),
+                            begin: const Alignment(-1.0, -1.0),
+                            end: const Alignment(1.0, 1.0),
                             colors: [
                               shimmerColor,
-                              highlightColor.withOpacity(animationValue),
+                              highlightColor.withValues(alpha: animationValue),
                               shimmerColor,
                             ],
                             stops: const [0.0, 0.5, 1.0],
@@ -482,11 +516,11 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                     color: shimmerColor,
                     borderRadius: BorderRadius.circular(8),
                     gradient: LinearGradient(
-                      begin: Alignment(-1.0, -1.0),
-                      end: Alignment(1.0, 1.0),
+                      begin: const Alignment(-1.0, -1.0),
+                      end: const Alignment(1.0, 1.0),
                       colors: [
                         shimmerColor,
-                        highlightColor.withOpacity(animationValue),
+                        highlightColor.withValues(alpha: animationValue),
                         shimmerColor,
                       ],
                       stops: const [0.0, 0.5, 1.0],
@@ -539,21 +573,23 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
           radius: const Radius.circular(3.0), // 圆角
           child: _isLoading
               ? _buildSkeletonLoading()
-              : _historyList.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.history, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text(
-                            '暂无阅读历史',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+              : _hasError
+                  ? _buildErrorState()
+                  : _historyList.isEmpty
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.history, size: 64, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text(
+                                '暂无阅读历史',
+                                style: TextStyle(fontSize: 16, color: Colors.grey),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    )
-                  : NotificationListener<ScrollNotification>(
+                        )
+                      : NotificationListener<ScrollNotification>(
                       onNotification: (scrollInfo) {
                         // 当滚动到距离底部100像素以内时触发加载更多
                         final threshold = scrollInfo.metrics.maxScrollExtent - 100;
@@ -604,6 +640,7 @@ class _HistoryPageState extends State<HistoryPage> with SingleTickerProviderStat
                             final manga = _mangaCache[progress.mangaId];
 
                             return HistoryItem(
+                              key: ValueKey(progress.mangaId),
                               progress: progress,
                               manga: manga,
                               onContinue: () => _continueReading(progress),
@@ -820,7 +857,7 @@ class _HistoryItemState extends State<HistoryItem> with SingleTickerProviderStat
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(

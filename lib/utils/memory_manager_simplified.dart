@@ -28,8 +28,13 @@ class MemoryManager {
   // 执行缓存清理
   void _performCacheCleanup() {
     try {
-      // 清理图片缓存（cached_network_image有内置的过期机制）
-      // 这里可以添加其他缓存清理逻辑
+      // 图片内存缓存超过上限的 80% 时清理，避免低内存设备 OOM
+      final imageCache = PaintingBinding.instance.imageCache;
+      final maxBytes = imageCache.maximumSizeBytes;
+      if (maxBytes > 0 && imageCache.currentSizeBytes > maxBytes * 0.8) {
+        imageCache.clear();
+        imageCache.clearLiveImages();
+      }
     } catch (e) {
       // 执行缓存清理失败
     }

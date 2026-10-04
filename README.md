@@ -3,8 +3,8 @@
 
   # 🎯 嘿！——漫
 
-  [![Flutter](https://img.shields.io/badge/Flutter-3.0.0+-blue.svg)](https://flutter.dev)
-  [![Dart](https://img.shields.io/badge/Dart-3.0.0+-blue.svg)](https://dart.dev)
+  [![Flutter](https://img.shields.io/badge/Flutter-3.44.0+-blue.svg)](https://flutter.dev)
+  [![Dart](https://img.shields.io/badge/Dart-3.12.0+-blue.svg)](https://dart.dev)
   [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 </div>
@@ -22,14 +22,21 @@
 <div align="center">
 
 ### 主界面与搜索
-<img src="https://github.com/user-attachments/assets/cffa91fe-7195-4a06-b92e-e038cb5b75dd" width="280" alt="主界面">
-<img src="https://github.com/user-attachments/assets/d1a71907-5407-4f24-85b2-2d4daeb29adc" width="280" alt="搜索页面">
+<img src="docs/screenshots/home.jpg" width="280" alt="主界面">
+<img src="docs/screenshots/search.jpg" width="280" alt="搜索页面">
 
 ### 标签页与详情页
-<img src="https://github.com/user-attachments/assets/ee529c8b-e740-4a89-872f-06cb40e218ff" width="280" alt="标签分类">
-<img src="https://github.com/user-attachments/assets/143674d3-73ba-421d-85e3-4bd000723a06" width="280" alt="漫画详情">
+<img src="docs/screenshots/tags.jpg" width="280" alt="标签分类">
+<img src="docs/screenshots/detail.jpg" width="280" alt="漫画详情">
+
+### 阅读器与设置
+<img src="docs/screenshots/reader.jpg" width="280" alt="阅读器">
+<img src="docs/screenshots/settings.jpg" width="280" alt="设置">
 
 </div>
+
+> 截图为 v0.1.26 在 OnePlus PGP110（Android 15）上的深色模式实机截图，构建已启用 R8 压缩并包含
+> P0–P3 全部修复。图片存放于 [`docs/screenshots/`](docs/screenshots)，随仓库分发，不依赖外链。
 
 ## 🏗️ 项目架构
 
@@ -90,12 +97,13 @@ lib/
 ### 🔧 技术栈
 
 **核心框架**
-- **Flutter SDK**: >=3.0.0
-- **Dart SDK**: >=3.0.0
+- **Flutter SDK**: >=3.44.0
+- **Dart SDK**: >=3.12.0
 
 **主要依赖包**
 - `dio: ^5.0.0` - HTTP客户端，用于API通信
 - `cached_network_image: ^3.3.0` - 网络图片缓存
+- `flutter_cache_manager: ^3.4.5` - 图片磁盘缓存管理（设置页缓存统计/清理）
 - `dynamic_color: ^1.7.1` - Material You 动态取色
 - `url_launcher: ^6.2.2` - URL启动器
 - `shared_preferences: ^2.2.2` - 本地存储
@@ -114,8 +122,8 @@ lib/
 ## 🚀 快速开始
 
 ### 环境要求
-- Flutter SDK 3.0.0+
-- Dart SDK 3.0.0+
+- Flutter SDK 3.44.0+
+- Dart SDK 3.12.0+
 
 ### 安装与运行
 
@@ -134,11 +142,39 @@ flutter run
 flutter build apk --split-per-abi --release
 ```
 
+### 发布签名
+
+release 包**必须**使用自己的签名密钥，构建脚本不会回退到 Android 调试密钥。
+> ⚠️ release 构建需要 `android/key.properties`（以及其中指向的 keystore）；缺失时 `flutter build apk --release` 会直接失败。
+
+首次在新机器上构建 release 包时，需要准备 keystore 与 `android/key.properties`：
+
+```bash
+# 1. 生成 keystore（有效期 10000 天）
+keytool -genkeypair -v \
+  -keystore android/app/heimanmanga-release.jks \
+  -storetype PKCS12 -keyalg RSA -keysize 2048 -validity 10000 \
+  -alias heimanmanga -storepass "<你的密码>" -keypass "<你的密码>" \
+  -dname "CN=heimanmanga, OU=Mobile, O=heimanmanga, L=Unknown, ST=Unknown, C=CN"
+
+# 2. 创建 android/key.properties
+cat > android/key.properties <<'EOF'
+storePassword=<你的密码>
+keyPassword=<你的密码>
+keyAlias=heimanmanga
+storeFile=heimanmanga-release.jks
+EOF
+```
+
+`android/key.properties` 与 `*.jks` 均已被 `.gitignore` 忽略，**请务必将 keystore 与密码
+备份到仓库之外的安全位置**：一旦丢失，已发布的应用将无法再发布可覆盖安装的更新。
+缺少 `key.properties` 时，release 构建会直接失败并给出提示（debug 构建不受影响）。
+
 ## 📊 版本信息
 
 - **当前版本**: 0.1.26+2
-- **Flutter SDK**: 3.35.0+
-- **Dart SDK**: 3.9.0+
+- **Flutter SDK**: 3.44.0+（当前最低要求）
+- **Dart SDK**: 3.12.0+（当前最低要求）
 
 ## 📄 许可证
 

@@ -10,7 +10,7 @@ class FavoritesService {
   AppDatabase? _database;
 
   Future<void> _ensureDb() async {
-    _database ??= AppDatabase();
+    _database ??= AppDatabase.instance;
   }
 
   Future<bool> isFavorite(String mangaId) async {
@@ -28,10 +28,8 @@ class FavoritesService {
     String? coverPath,
   }) async {
     await _ensureDb();
-    final existing = await isFavorite(mangaId);
-    if (existing) return;
-
-    await _database!.into(_database!.favorites).insert(
+    // 使用 upsert（唯一键为 mangaId），避免并发/双击时"先查后插"触发 UNIQUE 约束错误
+    await _database!.into(_database!.favorites).insertOnConflictUpdate(
       FavoritesCompanion.insert(
         mangaId: mangaId,
         title: title,

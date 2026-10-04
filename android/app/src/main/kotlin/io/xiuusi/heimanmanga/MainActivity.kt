@@ -1,5 +1,6 @@
 package io.xiuusi.heimanmanga
 
+import android.util.Log
 import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -8,6 +9,8 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity: FlutterActivity() {
     private val VOLUME_KEY_CHANNEL = "io.xiuusi.heimanmanga/volume_keys"
     private var shouldInterceptVolumeKeys = false
+
+    private val TAG = "MainActivity"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -21,7 +24,7 @@ class MainActivity: FlutterActivity() {
                 "setVolumeKeyInterception" -> {
                     val enabled = call.argument<Boolean>("enabled") ?: false
                     shouldInterceptVolumeKeys = enabled
-                    println("Android 原生层：音量键拦截状态设置为 $shouldInterceptVolumeKeys")
+                    Log.d(TAG, "Android 原生层：音量键拦截状态设置为 $shouldInterceptVolumeKeys")
                     result.success(null)
                 }
                 else -> result.notImplemented()
@@ -31,6 +34,11 @@ class MainActivity: FlutterActivity() {
 
     // 重写 onKeyDown 来拦截音量键
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // 长按产生的重复事件直接交给系统，避免音量键连发导致疯狂翻页
+        if ((event?.repeatCount ?: 0) > 0) {
+            return super.onKeyDown(keyCode, event)
+        }
+
         // 只有在应该拦截音量键时才处理
         if (!shouldInterceptVolumeKeys) {
             return super.onKeyDown(keyCode, event)
@@ -38,13 +46,13 @@ class MainActivity: FlutterActivity() {
 
         // 音量加键
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            println("Android 原生层：接收到音量加键（已拦截）")
+            Log.d(TAG, "Android 原生层：接收到音量加键（已拦截）")
             sendVolumeKeyEventToFlutter("volume_up")
             return true // 返回 true 表示已处理，阻止系统默认行为
         }
         // 音量减键
         else if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
-            println("Android 原生层：接收到音量减键（已拦截）")
+            Log.d(TAG, "Android 原生层：接收到音量减键（已拦截）")
             sendVolumeKeyEventToFlutter("volume_down")
             return true // 返回 true 表示已处理，阻止系统默认行为
         }

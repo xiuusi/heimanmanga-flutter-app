@@ -8,7 +8,6 @@
   - 新增 `reader_controls.dart` — 顶部栏 + 底部进度条控件
   - 新增 `reader_status_widgets.dart` — 加载态/错误态/章节加载遮罩
   - `reader_controller.dart` 公开 `getPageGroups()`，消除页面端重复逻辑
-- **计划**: 从 UPDATE_PLAN 中移除离线下载待办项
 
 ## v0.1.25
 

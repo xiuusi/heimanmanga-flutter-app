@@ -32,6 +32,23 @@ class ReaderController extends ChangeNotifier {
   String? errorMessage;
   List<String> imageUrls = [];
 
+  /// 真实页数。imageUrls 末尾会追加一个用于"章节结尾过渡"的占位标记，
+  /// 它不是章节内容，因此所有"总页数 / 百分比 / 计数"口径都必须用本 getter（P1-6）。
+  int get realPageCount {
+    if (imageUrls.isEmpty) return 0;
+    return imageUrls.last == transitionPageMarker
+        ? imageUrls.length - 1
+        : imageUrls.length;
+  }
+
+  /// 最近一次成功落库的进度，用于避免定时器重复写同一条记录（P1-5）。
+  String? _lastSavedChapterId;
+  int? _lastSavedPage;
+
+  /// 图片列表代次号：每次换章 / 重新加载都会自增，
+  /// 用于丢弃基于旧列表的延迟回调（P2-2）。
+  int _imageGeneration = 0;
+
   DualPageConfig dualPageConfig = DualPageConfig();
   List<PageGroup> pageGroups = [];
   int currentGroupIndex = 0;
@@ -40,7 +57,6 @@ class ReaderController extends ChangeNotifier {
   bool isLoadingNextChapter = false;
 
   Timer? hideTimer;
-  bool isInFullscreen = false;
 
   final PageTransformManager pageTransformManager = PageTransformManager();
 
@@ -53,7 +69,6 @@ class ReaderController extends ChangeNotifier {
   bool isNearChapterEnd = false;
   Timer? nextChapterPreloadTimer;
 
-  double readingProgress = 0.0;
   Timer? progressSaveTimer;
 
   final ReadingProgressService progressService = ReadingProgressService();
@@ -73,7 +88,7 @@ class ReaderController extends ChangeNotifier {
     required this.chapters,
     this.initialConfig,
   }) {
-    config = initialConfig ?? ReadingGestureConfig();
+    config = initialConfig ?? const ReadingGestureConfig();
     readingDirection = config.readingDirection;
     volumeButtonNavigationEnabled = config.volumeButtonNavigation;
 
@@ -86,7 +101,7 @@ class ReaderController extends ChangeNotifier {
   void init(BuildContext context) {
     setSystemUI();
     setupVolumeKeyListener();
-    enableVolumeKeyInterception(true);
+    applyVolumeKeyInterception();
     _loadPreferences();
     loadChapterImages(context);
     startHideTimer();
@@ -127,6 +142,10 @@ class ReaderController extends ChangeNotifier {
       if (volNav != null) {
         volumeButtonNavigationEnabled = volNav;
       }
+      // P1-4：偏好是异步读出来的，读完必须按真实值重新同步原生拦截状态，
+      // 否则 init() 阶段用的只是配置默认值（true），用户"关闭"的设置会被忽略。
+      setupVolumeKeyListener();
+      applyVolumeKeyInterception();
     } catch (e) {
       debugPrint('警告: 加载阅读偏好失败 - $e');
     }
@@ -146,11 +165,20 @@ class ReaderController extends ChangeNotifier {
   }
 
   void loadChapterImages(BuildContext context) async {
+    // P1-2：重试前必须清掉上一次的错误，否则 _EnhancedReaderPageState.build
+    // 里的 `if (errorMessage != null)` 会让错误页永久驻留，重试成功后也无法恢复。
+    if (errorMessage != null || !isLoading) {
+      errorMessage = null;
+      isLoading = true;
+      notifyListeners();
+    }
+
     try {
       final apiImageFiles = await MangaApiService.getChapterImageFiles(
         manga.id,
         chapter.id,
       );
+      if (_disposed) return;
 
       if (apiImageFiles.isNotEmpty) {
         List<String> urls = [];
@@ -162,11 +190,18 @@ class ReaderController extends ChangeNotifier {
         urls.add(transitionPageMarker);
 
         imageUrls = urls;
+        errorMessage = null;
         isLoading = false;
+        // 新的图片列表意味着旧的页面布局与在途预加载回调全部失效（P1-1 / P2-2）。
+        _imageGeneration++;
+        clearVerticalPageLayout();
+        pageGroups = [];
+        _pageGroupsSignature = null;
         notifyListeners();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          pageGroups = getPageGroups(context);
+          if (_disposed) return;
+          refreshPageGroups(context);
           preloadNearbyPages(context);
           notifyListeners();
         });
@@ -176,6 +211,7 @@ class ReaderController extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
+      if (_disposed) return;
       errorMessage = "加载章节失败: $e";
       isLoading = false;
       notifyListeners();
@@ -189,6 +225,8 @@ class ReaderController extends ChangeNotifier {
 
       if (existingProgress != null) {
         if (existingProgress!.shouldPromptJump(chapter.id)) {
+          // 进度读取是异步的，期间页面可能已经退出。
+          if (_disposed || !context.mounted) return;
           _showJumpToProgressPrompt(context);
         }
       }
@@ -249,13 +287,14 @@ class ReaderController extends ChangeNotifier {
   }
 
   void _waitForImagesAndJump(BuildContext context) async {
-    final maxWaitTime = const Duration(seconds: 5);
+    const maxWaitTime = Duration(seconds: 5);
     final startTime = DateTime.now();
 
     while (imageUrls.isEmpty && DateTime.now().difference(startTime) < maxWaitTime) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
 
+    if (_disposed || !context.mounted) return;
     if (imageUrls.isNotEmpty) {
       _performJumpToProgress(context);
     } else {
@@ -266,27 +305,39 @@ class ReaderController extends ChangeNotifier {
   void _performJumpToProgress(BuildContext context) {
     if (existingProgress == null || imageUrls.isEmpty) return;
 
-    final targetPage = existingProgress!.currentPage.clamp(0, imageUrls.length - 1);
+    final targetPage = existingProgress!.currentPage.clamp(0, realPageCount - 1);
     currentPage = targetPage;
     notifyListeners();
 
-    if (readingDirection == ReadingDirection.vertical ||
-        readingDirection == ReadingDirection.webtoon) {
-      scrollController.animateTo(
-        targetPage * MediaQuery.of(context).size.height,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      final targetIndex = _getGroupIndexForPage(context, targetPage);
+    _jumpToPageWhenReady(context, targetPage);
+
+    HapticFeedbackManager.mediumImpact();
+  }
+
+  /// 跳转到指定页。
+  /// PageView 可能在图片刚加载完、首帧尚未渲染时还没有挂载，
+  /// 此时必须延迟到下一帧再执行，否则 PageController 会抛 StateError。
+  void _jumpToPageWhenReady(BuildContext context, int pageIndex) {
+    if (_disposed) return;
+
+    if (isVerticalMode) {
+      goToVerticalPage(pageIndex, duration: const Duration(milliseconds: 500));
+      return;
+    }
+
+    final targetIndex = _getGroupIndexForPage(context, pageIndex);
+    if (pageController.hasClients) {
       pageController.animateToPage(
         targetIndex,
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
+      return;
     }
-
-    HapticFeedbackManager.mediumImpact();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed || !pageController.hasClients) return;
+      pageController.jumpToPage(targetIndex);
+    });
   }
 
   Future<void> markCurrentChapterAsRead() async {
@@ -305,14 +356,25 @@ class ReaderController extends ChangeNotifier {
   Future<void> saveReadingProgress() async {
     if (imageUrls.isEmpty) return;
 
+    final total = realPageCount;
+    if (total <= 0) return;
+
+    final ch = getCurrentChapter();
+    // 过渡页不是真实页面，落库时把页码夹回最后一页（P1-6）。
+    final page = currentPage.clamp(0, total - 1);
+
+    // 页码/章节没有变化时不必重复写库（P1-5：原先每 5 秒无条件写一次）。
+    if (_lastSavedChapterId == ch.id && _lastSavedPage == page) return;
+
     try {
-      final ch = getCurrentChapter();
       await progressService.saveProgress(
         manga: manga,
         chapter: ch,
-        currentPage: currentPage,
-        totalPages: imageUrls.length,
+        currentPage: page,
+        totalPages: total,
       );
+      _lastSavedChapterId = ch.id;
+      _lastSavedPage = page;
     } catch (e) {
       debugPrint('警告: 保存阅读进度失败 - $e');
     }
@@ -336,13 +398,19 @@ class ReaderController extends ChangeNotifier {
       (a - currentPage).abs().compareTo((b - currentPage).abs())
     );
 
+    // P2-2：延迟回调里不能再读 imageUrls（切章后它已被替换成更短的列表，
+    // 旧下标会抛 RangeError），也不能对已卸载的元素调 precacheImage。
+    // 因此捕获 URL 字符串，并用代次号判断图片列表是否已经换过。
+    final generation = _imageGeneration;
     for (int i = 0; i < pagesToPreload.length; i++) {
       final pageIndex = pagesToPreload[i];
+      final imageUrl = imageUrls[pageIndex];
       preloadedPages.add(pageIndex);
 
       Future.delayed(Duration(milliseconds: i * 50), () {
+        if (_disposed || !context.mounted || generation != _imageGeneration) return;
         precacheImage(
-          CachedNetworkImageProvider(imageUrls[pageIndex]),
+          CachedNetworkImageProvider(imageUrl),
           context,
           onError: (_, __) => preloadedPages.remove(pageIndex),
         );
@@ -387,6 +455,7 @@ class ReaderController extends ChangeNotifier {
               manga.id, nextChapter.id, apiImageFiles[i],
             );
             Future.delayed(Duration(milliseconds: i * 100), () {
+              if (_disposed || !context.mounted) return;
               precacheImage(CachedNetworkImageProvider(imageUrl), context);
             });
           }
@@ -494,7 +563,6 @@ class ReaderController extends ChangeNotifier {
   }
 
   void resetZoom() {
-    gestureHandler?.cancelZoomReset();
     pageTransformManager.resetAll();
   }
 
@@ -507,14 +575,20 @@ class ReaderController extends ChangeNotifier {
     pageTransformManager.updatePanOffset(stateKey, offset, alignment: alignment, viewportSize: screenSize);
   }
 
+  /// 竖屏滚动 / 网漫模式只构建 ListView，不会挂载 PageView，
+  /// 此时 pageController 没有任何 position，直接调用翻页会抛 StateError。
+  bool get isVerticalMode =>
+      readingDirection == ReadingDirection.vertical ||
+      readingDirection == ReadingDirection.webtoon;
+
+  /// 控制器是否已释放，用于丢弃延迟到下一帧的回调。
+  bool _disposed = false;
+
   void previousPage() {
     if (currentPage > 0) {
       HapticFeedbackManager.selectionClick();
       final animConfig = PageAnimationManager().getTapAnimationConfig();
-      pageController.previousPage(
-        duration: animConfig.duration,
-        curve: animConfig.curve,
-      );
+      _turnPage(-1, animConfig.duration, animConfig.curve);
     }
   }
 
@@ -522,10 +596,7 @@ class ReaderController extends ChangeNotifier {
     if (currentPage < imageUrls.length - 1) {
       HapticFeedbackManager.selectionClick();
       final animConfig = PageAnimationManager().getTapAnimationConfig();
-      pageController.nextPage(
-        duration: animConfig.duration,
-        curve: animConfig.curve,
-      );
+      _turnPage(1, animConfig.duration, animConfig.curve);
     } else {
       HapticFeedbackManager.lightImpact();
     }
@@ -535,20 +606,114 @@ class ReaderController extends ChangeNotifier {
     if (isForward) {
       if (currentPage < imageUrls.length - 1) {
         final animConfig = PageAnimationManager().getSwipeAnimationConfig(velocity, true);
-        pageController.nextPage(
-          duration: animConfig.duration,
-          curve: animConfig.curve,
-        );
+        _turnPage(1, animConfig.duration, animConfig.curve);
       }
     } else {
       if (currentPage > 0) {
         final animConfig = PageAnimationManager().getSwipeAnimationConfig(velocity, false);
-        pageController.previousPage(
-          duration: animConfig.duration,
-          curve: animConfig.curve,
-        );
+        _turnPage(-1, animConfig.duration, animConfig.curve);
       }
     }
+  }
+
+  /// 翻到相邻页（delta 为 +1 / -1）。
+  /// 竖屏/网漫模式走 scrollController，横向模式走 PageView。
+  /// 两个 controller 都必须先判断 hasClients，否则在未挂载时会抛 StateError。
+  void _turnPage(int delta, Duration duration, Curve curve) {
+    if (_disposed) return;
+
+    if (isVerticalMode) {
+      if (!scrollController.hasClients) return;
+      goToVerticalPage(currentPage + delta, duration: duration);
+      return;
+    }
+
+    if (!pageController.hasClients) return;
+    if (delta > 0) {
+      pageController.nextPage(duration: duration, curve: curve);
+    } else {
+      pageController.previousPage(duration: duration, curve: curve);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 竖屏模式的真实布局信息（P1-1）
+  //
+  // 竖屏阅读器是连续滚动的 ListView，每一项的高度由图片宽高比决定，并不等于
+  // 屏幕高度。原先用 `pixels / screenHeight` 推断页码、用 `page * screenHeight`
+  // 定位，两个假设都不成立，导致页码 / 进度 / 跳转整体偏移。
+  // 现在由列表项在布局完成后回填真实偏移：页码取"视口顶部所在的页"，
+  // 翻页则直接滚动到目标页的真实偏移。
+  // ---------------------------------------------------------------------------
+
+  /// 每页顶部在滚动坐标系中的偏移与高度。
+  final Map<int, double> _pageTops = {};
+  final Map<int, double> _pageHeights = {};
+
+  /// 列表项布局完成后回填（见 `_VerticalPageMeasure`）。
+  /// 注意：这里不 notifyListeners，避免"回填 → 重建 → 再回填"的循环。
+  void reportVerticalPageLayout(int index, double top, double height) {
+    if (_disposed) return;
+    if (_pageTops[index] == top && _pageHeights[index] == height) return;
+    _pageTops[index] = top;
+    _pageHeights[index] = height;
+  }
+
+  /// 章节 / 阅读方向 / 布局变化后丢弃旧的布局缓存。
+  void clearVerticalPageLayout() {
+    _pageTops.clear();
+    _pageHeights.clear();
+  }
+
+  /// 当前页 = 视口顶部所在的页；尚无测量数据时退化为按视口高度估算。
+  int resolveVerticalPageIndex() {
+    if (!scrollController.hasClients) return currentPage;
+    final position = scrollController.position;
+    final pixels = position.pixels;
+
+    if (_pageTops.isNotEmpty) {
+      int? bestIndex;
+      var bestTop = double.negativeInfinity;
+      for (final entry in _pageTops.entries) {
+        final top = entry.value;
+        if (top <= pixels + 1.0 && top > bestTop) {
+          bestTop = top;
+          bestIndex = entry.key;
+        }
+      }
+      if (bestIndex != null) return bestIndex;
+    }
+
+    final viewport = position.viewportDimension;
+    if (viewport <= 0 || imageUrls.isEmpty) return currentPage;
+    return (pixels / viewport).floor().clamp(0, imageUrls.length - 1);
+  }
+
+  /// 第 page 页对应的滚动偏移；无测量数据时退化为按视口高度估算。
+  double verticalOffsetForPage(int page) {
+    if (!scrollController.hasClients) return 0;
+    final max = scrollController.position.maxScrollExtent;
+    final measured = _pageTops[page];
+    if (measured != null) return measured.clamp(0.0, max);
+    final viewport = scrollController.position.viewportDimension;
+    return (page * viewport).clamp(0.0, max);
+  }
+
+  /// 竖屏模式跳转到指定页（索引含末尾的合成过渡页）。
+  void goToVerticalPage(int page, {Duration duration = const Duration(milliseconds: 300)}) {
+    if (_disposed) return;
+    if (!scrollController.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_disposed || !scrollController.hasClients) return;
+        scrollController.jumpTo(verticalOffsetForPage(page));
+      });
+      return;
+    }
+    scrollController.animateTo(
+      verticalOffsetForPage(page),
+      duration: duration,
+      curve: Curves.easeInOut,
+    );
   }
 
   Future<void> showChapterTransition(BuildContext context) async {
@@ -658,6 +823,9 @@ class ReaderController extends ChangeNotifier {
         nextChapter.id,
       );
 
+      // 网络请求期间页面可能已经退出，下面所有分支都会用到 context。
+      if (_disposed || !context.mounted) return;
+
       if (apiImageFiles.isNotEmpty) {
         List<String> newUrls = [];
         for (String fileName in apiImageFiles) {
@@ -671,9 +839,21 @@ class ReaderController extends ChangeNotifier {
         currentPage = 0;
         imageUrls = newUrls;
         isLoadingNextChapter = false;
+        // 换章后页面布局与在途预加载回调失效（P1-1 / P2-2）。
+        _imageGeneration++;
+        clearVerticalPageLayout();
+        pageGroups = [];
+        _pageGroupsSignature = null;
         notifyListeners();
 
-        pageController.jumpToPage(0);
+        // 竖屏/网漫模式没有 PageView，pageController 未挂载；
+        // 直接调用会抛 StateError，并被下方的 catch 误报成"加载下一章失败"。
+        if (scrollController.hasClients) {
+          scrollController.jumpTo(0);
+        }
+        if (pageController.hasClients) {
+          pageController.jumpToPage(0);
+        }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           pageGroups = getPageGroups(context);
@@ -691,22 +871,23 @@ class ReaderController extends ChangeNotifier {
     } catch (e) {
       isLoadingNextChapter = false;
       notifyListeners();
-      showSnackBar(context, '加载下一章失败');
+      if (!_disposed && context.mounted) {
+        showSnackBar(context, '加载下一章失败');
+      }
     }
   }
 
   void setVolumeButtonNavigation(bool enabled) {
     volumeButtonNavigationEnabled = enabled;
-    if (enabled) {
-      setupVolumeKeyListener();
-    }
-    enableVolumeKeyInterception(enabled);
+    setupVolumeKeyListener();
+    applyVolumeKeyInterception();
     _saveBool('reader_volume_button_nav', enabled);
     notifyListeners();
   }
 
   void setPageLayout(PageLayout layout) {
     dualPageConfig.pageLayout = layout;
+    clearVerticalPageLayout();
     _saveInt('reader_page_layout', layout.index);
     notifyListeners();
   }
@@ -717,18 +898,22 @@ class ReaderController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _saveInt(String key, int value) {
-    SharedPreferences.getInstance().then(
-      (prefs) => prefs.setInt(key, value),
-      onError: (e) => debugPrint('警告: 保存阅读偏好失败($key) - $e'),
-    );
+  Future<void> _saveInt(String key, int value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(key, value);
+    } catch (e) {
+      debugPrint('警告: 保存阅读偏好失败($key) - $e');
+    }
   }
 
-  void _saveBool(String key, bool value) {
-    SharedPreferences.getInstance().then(
-      (prefs) => prefs.setBool(key, value),
-      onError: (e) => debugPrint('警告: 保存阅读偏好失败($key) - $e'),
-    );
+  Future<void> _saveBool(String key, bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(key, value);
+    } catch (e) {
+      debugPrint('警告: 保存阅读偏好失败($key) - $e');
+    }
   }
 
   void showSettings() {
@@ -745,22 +930,40 @@ class ReaderController extends ChangeNotifier {
     }
   }
 
+  /// 注册原生音量键事件回调（整个控制器生命周期内只注册一次）。
+  /// 是否真正翻页由 [volumeButtonNavigationEnabled] 在事件回调里判断（P1-4）。
   void setupVolumeKeyListener() {
-    if (isChannelListenerSetup || !volumeButtonNavigationEnabled) return;
+    if (isChannelListenerSetup) return;
 
     const MethodChannel('io.xiuusi.heimanmanga/volume_keys')
         .setMethodCallHandler((MethodCall call) async {
-      if (call.method == 'onVolumeKeyPressed') {
-        final String key = call.arguments['key'];
-        if (key == 'volume_up') {
-          previousPage();
-        } else if (key == 'volume_down') {
-          nextPage();
-        }
+      if (call.method != 'onVolumeKeyPressed') return;
+      // P1-4：开关关闭时必须在回调内直接忽略，不能只靠"不注册回调"表达关闭。
+      if (!volumeButtonNavigationEnabled) return;
+      final args = call.arguments;
+      final key = args is Map ? args['key'] as String? : null;
+      if (key == 'volume_up') {
+        previousPage();
+      } else if (key == 'volume_down') {
+        nextPage();
       }
     });
 
     isChannelListenerSetup = true;
+  }
+
+  /// 把当前开关状态同步给原生层。
+  /// P1-4：原先 init() 里硬编码 `enableVolumeKeyInterception(true)`，
+  /// 导致用户关闭"音量键翻页"后，系统音量键仍被原生层拦截吞掉（既不能翻页也不能调音量）。
+  void applyVolumeKeyInterception() {
+    enableVolumeKeyInterception(volumeButtonNavigationEnabled);
+  }
+
+  /// 注销原生回调，避免阅读器关闭后控制器仍被 MethodChannel 长期引用。
+  void disposeVolumeKeyListener() {
+    const MethodChannel('io.xiuusi.heimanmanga/volume_keys')
+        .setMethodCallHandler(null);
+    isChannelListenerSetup = false;
   }
 
   Future<void> enableVolumeKeyInterception(bool enabled) async {
@@ -794,9 +997,6 @@ class ReaderController extends ChangeNotifier {
       currentPage = index;
     }
 
-    readingProgress = imageUrls.isNotEmpty
-        ? currentPage / (imageUrls.length - 1)
-        : 0.0;
     notifyListeners();
 
     preloadNearbyPages(context);
@@ -806,7 +1006,8 @@ class ReaderController extends ChangeNotifier {
       startHideTimer();
     }
 
-    if (currentPage == imageUrls.length - 1 && imageUrls.isNotEmpty) {
+    // 读到最后一页"真实内容"即视为已读完，不再要求滑到合成过渡页（P1-6）。
+    if (realPageCount > 0 && currentPage >= realPageCount - 1) {
       markCurrentChapterAsRead();
     }
   }
@@ -852,6 +1053,45 @@ class ReaderController extends ChangeNotifier {
     return groups;
   }
 
+  /// P2-13：原先页面在 build() 里直接 `pageGroups = getPageGroups(context)`，
+  /// 属于"在 build 中修改状态"。改为在帧后按签名刷新缓存，页面只读取缓存。
+  String? _pageGroupsSignature;
+
+  void refreshPageGroups(BuildContext context) {
+    if (_disposed) return;
+    final layout = _getActualLayout(context);
+    final signature = '${imageUrls.length}|${layout.name}'
+        '|${dualPageConfig.shiftDoublePage}|${DualPageUtils.isLandscape(context)}';
+    if (signature == _pageGroupsSignature) return;
+    pageGroups = getPageGroups(context);
+    _pageGroupsSignature = signature;
+  }
+
+  /// P2-12：切换阅读方向 / 布局后，新的 PageView（或 ListView）会从 0 开始，
+  /// 而 currentPage 还是切换前的值，导致页码计数与实际显示不一致。
+  /// 由页面在新布局完成一帧后调用，把控制器重新定位到 currentPage。
+  void syncControllersToCurrentPage(BuildContext context, {int attempt = 0}) {
+    if (_disposed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed) return;
+      final page = currentPage;
+
+      if (isVerticalMode) {
+        if (!scrollController.hasClients) return;
+        if (_pageTops[page] == null && attempt < 2) {
+          // 竖屏布局回填还没完成，再等一帧（最多重试 2 次）。
+          syncControllersToCurrentPage(context, attempt: attempt + 1);
+          return;
+        }
+        scrollController.jumpTo(verticalOffsetForPage(page));
+        return;
+      }
+
+      if (!pageController.hasClients) return;
+      pageController.jumpToPage(_getGroupIndexForPage(context, page));
+    });
+  }
+
   PageLayout _getActualLayout(BuildContext context) {
     final isLandscape = DualPageUtils.isLandscape(context);
     if (dualPageConfig.pageLayout == PageLayout.auto) {
@@ -864,6 +1104,8 @@ class ReaderController extends ChangeNotifier {
 
   void setReadingDirection(ReadingDirection direction) {
     readingDirection = direction;
+    // 方向切换会重建阅读区（ListView ↔ PageView），布局缓存必须失效（P1-1）。
+    clearVerticalPageLayout();
     config = ReadingGestureConfig(
       readingDirection: direction,
       tapToZoom: config.tapToZoom,
@@ -887,11 +1129,17 @@ class ReaderController extends ChangeNotifier {
   }
 
   void disposeController() {
+    _disposed = true;
+    disposeVolumeKeyListener();
     hideTimer?.cancel();
     progressSaveTimer?.cancel();
     nextChapterPreloadTimer?.cancel();
     pageController.dispose();
     scrollController.dispose();
     focusNode.dispose();
+    // P2-5：ChangeNotifier 自身与页面变换管理器此前从未被释放。
+    // 调用方必须先 removeListener，再调用本方法。
+    pageTransformManager.dispose();
+    super.dispose();
   }
 }

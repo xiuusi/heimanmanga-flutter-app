@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'api_service.dart';
 
@@ -43,8 +44,8 @@ class DioService {
 
         // 调试信息
         if (MangaApiService.debugMode) {
-          print('[Dio] Request: ${options.method} ${options.uri}');
-          print('[Dio] Headers: ${options.headers}');
+          debugPrint('[Dio] Request: ${options.method} ${options.uri}');
+          debugPrint('[Dio] Headers: ${options.headers}');
         }
 
         handler.next(options);
@@ -52,11 +53,11 @@ class DioService {
       onResponse: (response, handler) {
         // 调试信息
         if (MangaApiService.debugMode) {
-          print('[Dio] Response: ${response.statusCode} ${response.statusMessage}');
-          print('[Dio] Response headers: ${response.headers}');
+          debugPrint('[Dio] Response: ${response.statusCode} ${response.statusMessage}');
+          debugPrint('[Dio] Response headers: ${response.headers}');
           final data = response.data;
           if (data is Map || data is List) {
-            print('[Dio] Response data: ${data.toString().length > 200 ? '${data.toString().substring(0, 200)}...' : data}');
+            debugPrint('[Dio] Response data: ${data.toString().length > 200 ? '${data.toString().substring(0, 200)}...' : data}');
           }
         }
         handler.next(response);
@@ -64,37 +65,15 @@ class DioService {
       onError: (error, handler) {
         // 调试信息
         if (MangaApiService.debugMode) {
-          print('[Dio] Error: ${error.type}');
-          print('[Dio] Error message: ${error.message}');
+          debugPrint('[Dio] Error: ${error.type}');
+          debugPrint('[Dio] Error message: ${error.message}');
           if (error.response != null) {
-            print('[Dio] Error response status: ${error.response?.statusCode}');
-            print('[Dio] Error response data: ${error.response?.data}');
+            debugPrint('[Dio] Error response status: ${error.response?.statusCode}');
+            debugPrint('[Dio] Error response data: ${error.response?.data}');
           }
         }
         handler.next(error);
       },
     ));
-  }
-
-  /// 更新Dio配置（例如baseUrl变化时）
-  void updateConfig({String? baseUrl, Duration? connectTimeout, Duration? receiveTimeout}) {
-    final options = BaseOptions(
-      baseUrl: baseUrl ?? _dio.options.baseUrl,
-      connectTimeout: connectTimeout ?? _dio.options.connectTimeout,
-      receiveTimeout: receiveTimeout ?? _dio.options.receiveTimeout,
-      sendTimeout: _dio.options.sendTimeout,
-      headers: {
-        ..._dio.options.headers,
-      },
-    );
-
-    _dio.options = options;
-  }
-
-  /// 清除所有请求
-  void cancelAllRequests({String? reason}) {
-    _dio.close(force: true);
-    // 重新初始化
-    _initDio();
   }
 }

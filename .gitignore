@@ -44,13 +44,24 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Android directory
-android/
+# Android 构建产物与本地缓存（原先靠整目录 `android/` 规则顺带忽略，
+# 该规则已移除，这里显式列出，避免构建垃圾被误提交）
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.cxx/
+
 crosspage_solution_summary.md
 devtools_options.yaml
 double_page_solution_summary.md
 page_grouping_shift_explanation.md
-pubspec.lock
 tag-api.txt
+
+# Release signing credentials — must never be committed.
+# 发布签名密钥与凭据必须显式忽略，绝不入库。
+android/key.properties
+**/*.jks
+**/*.keystore
 
 linux/

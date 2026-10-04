@@ -37,7 +37,15 @@ class DataParsers {
   /// 安全解析映射
   static Map<String, dynamic>? parseMap(dynamic value) {
     if (value == null) return null;
-    if (value is Map) return value.cast<String, dynamic>();
+    if (value is Map<String, dynamic>) return value;
+    // 不用 Map.cast：键不是 String 时它会在访问时抛异常
+    if (value is Map) {
+      final Map<String, dynamic> result = {};
+      value.forEach((key, val) {
+        result[key.toString()] = val;
+      });
+      return result;
+    }
     return null;
   }
 
@@ -60,7 +68,9 @@ class DataParsers {
     if (value is bool) return value;
     if (value is int) return value != 0;
     if (value is String) {
-      return value.toLowerCase() == 'true';
+      // 同时接受 'true' / '1' / 'yes'（忽略大小写与首尾空白）
+      final normalized = value.trim().toLowerCase();
+      return normalized == 'true' || normalized == '1' || normalized == 'yes';
     }
     return defaultValue;
   }

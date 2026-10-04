@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
-import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 
 /// 页面布局模式
 enum PageLayout {
@@ -64,78 +61,6 @@ class PageGroup {
 
 /// 双页阅读工具类
 class DualPageUtils {
-  /// 检测是否为宽图（宽高比 > 1）
-  static Future<bool> isWideImage(String imageUrl) async {
-    try {
-      final completer = Completer<ui.Image>();
-      final imageProvider = CachedNetworkImageProvider(imageUrl);
-
-      final stream = imageProvider.resolve(ImageConfiguration.empty);
-      final listener = ImageStreamListener((ImageInfo info, bool _) {
-        completer.complete(info.image);
-      });
-
-      stream.addListener(listener);
-      final image = await completer.future;
-      stream.removeListener(listener);
-
-      return image.width > image.height;
-    } catch (e) {
-      // 如果检测失败，默认不是宽图
-      return false;
-    }
-  }
-
-  /// 检测是否为长图（高度/宽度 > 3）
-  static Future<bool> isTallImage(String imageUrl) async {
-    try {
-      final completer = Completer<ui.Image>();
-      final imageProvider = CachedNetworkImageProvider(imageUrl);
-
-      final stream = imageProvider.resolve(ImageConfiguration.empty);
-      final listener = ImageStreamListener((ImageInfo info, bool _) {
-        completer.complete(info.image);
-      });
-
-      stream.addListener(listener);
-      final image = await completer.future;
-      stream.removeListener(listener);
-
-      return image.height / image.width > 3;
-    } catch (e) {
-      // 如果检测失败，默认不是长图
-      return false;
-    }
-  }
-
-  /// 拆分宽图为两半（简单URL拆分，实际应用中需要服务器支持或本地处理）
-  static List<String> splitWideImage(String imageUrl, {bool invertOrder = false}) {
-    // 在实际应用中，这里应该：
-    // 1. 下载图片
-    // 2. 使用图像处理库拆分为两半
-    // 3. 上传或保存拆分后的图片
-    // 4. 返回新的URL列表
-
-    // 目前返回占位URL，实际项目需要实现完整逻辑
-    if (invertOrder) {
-      return ['$imageUrl?part=right', '$imageUrl?part=left'];
-    } else {
-      return ['$imageUrl?part=left', '$imageUrl?part=right'];
-    }
-  }
-
-  /// 分割长图为多个部分
-  static List<String> splitTallImage(String imageUrl, {int maxHeight = 2000}) {
-    // 在实际应用中，这里应该：
-    // 1. 下载图片
-    // 2. 按maxHeight分割图片
-    // 3. 上传或保存分割后的图片
-    // 4. 返回新的URL列表
-
-    // 目前返回占位URL
-    return ['$imageUrl?part=1', '$imageUrl?part=2'];
-  }
-
   /// 根据配置对页面URL进行分组
   static List<PageGroup> groupPages(
     List<String> imageUrls,
@@ -191,16 +116,6 @@ class DualPageUtils {
   static bool isLandscape(BuildContext context) {
     final size = MediaQuery.of(context).size;
     return size.width > size.height;
-  }
-
-  /// 根据当前布局计算应该显示的页面索引
-  static int getDisplayPageIndex(int currentGroupIndex, int pageInGroup, PageLayout layout) {
-    if (layout == PageLayout.single) {
-      return currentGroupIndex;
-    } else {
-      // 双页模式：每个分组可能包含2个页面
-      return currentGroupIndex * 2 + pageInGroup;
-    }
   }
 
   /// 根据显示页面索引找到对应的分组索引

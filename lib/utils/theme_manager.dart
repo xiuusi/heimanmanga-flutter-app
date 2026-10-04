@@ -30,7 +30,7 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
 
   bool get isDarkMode {
     if (_currentThemeMode == ThemeModeType.auto) {
-      final brightness = WidgetsBinding.instance.window.platformBrightness;
+      final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
       return brightness == Brightness.dark;
     }
     return _currentThemeMode == ThemeModeType.dark;
@@ -53,7 +53,7 @@ class ThemeManager with ChangeNotifier, WidgetsBindingObserver {
   Future<void> setAccentColor(Color color) async {
     _accentColor = color;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('accent_color', color.value);
+    await prefs.setInt('accent_color', color.toARGB32());
     Future.microtask(() => notifyListeners());
   }
 

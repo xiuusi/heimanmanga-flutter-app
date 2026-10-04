@@ -20,6 +20,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasReachedEnd = false;
+  bool _hasError = false;
   static const int _pageSize = 20;
   int _offset = 0;
 
@@ -36,23 +37,39 @@ class _FavoritesPageState extends State<FavoritesPage> {
       setState(() => _isLoading = true);
     }
 
-    final items = await _favoritesService.getFavorites(
-      offset: loadMore ? _offset : 0,
-      limit: _pageSize,
-    );
+    try {
+      final items = await _favoritesService.getFavorites(
+        offset: loadMore ? _offset : 0,
+        limit: _pageSize,
+      );
 
-    if (mounted) {
-      setState(() {
-        if (loadMore) {
-          _favorites.addAll(items);
-        } else {
-          _favorites = items;
-        }
-        _offset = _favorites.length;
-        _hasReachedEnd = items.length < _pageSize;
-        _isLoading = false;
-        _isLoadingMore = false;
-      });
+      if (mounted) {
+        setState(() {
+          if (loadMore) {
+            _favorites.addAll(items);
+          } else {
+            _favorites = items;
+          }
+          _offset = _favorites.length;
+          _hasReachedEnd = items.length < _pageSize;
+          _hasError = false;
+        });
+      }
+    } catch (e) {
+      // 出错时不能卡在骨架屏：记录错误态并提供重试入口（P2-16）
+      debugPrint('加载收藏失败: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = !loadMore;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -70,6 +87,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     _offset = 0;
     _favorites = [];
     _hasReachedEnd = false;
+    _hasError = false;
     _loadFavorites();
   }
 
@@ -83,6 +101,30 @@ class _FavoritesPageState extends State<FavoritesPage> {
               child: LoadingAnimations.mangaGridSkeleton(
                 count: 6,
                 maxCrossAxisExtent: 200,
+              ),
+            ),
+          )
+        else if (_hasError && _favorites.isEmpty)
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    '加载收藏失败',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => _loadFavorites(),
+                    child: const Text('重试'),
+                  ),
+                ],
               ),
             ),
           )
@@ -148,6 +190,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                               transitionBuilder: PageTransitions.slideTransition,
                             ),
                           );
+                          if (!mounted) return;
                           refresh();
                         },
                         child: AbsorbPointer(

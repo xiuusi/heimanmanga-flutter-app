@@ -62,7 +62,7 @@ class PageTransformState {
 
     final minPanX = viewportSize.width * (1.0 - scale);
     final minPanY = viewportSize.height * (1.0 - scale);
-    final overshoot = 0.2;
+    const overshoot = 0.2;
     final overshootX = viewportSize.width * overshoot;
     final overshootY = viewportSize.height * overshoot;
 

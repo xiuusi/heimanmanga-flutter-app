@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -98,6 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
         'https://api.github.com/repos/xiuusi/heimanmanga-flutter-app/releases',
       );
 
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final List<dynamic> releases = response.data is List ? response.data as List<dynamic> : json.decode(response.data as String);
 
@@ -135,13 +135,16 @@ class _SettingsPageState extends State<SettingsPage> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _updateStatus = '网络连接失败';
       });
     } finally {
-      setState(() {
-        _isChecking = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isChecking = false;
+        });
+      }
     }
   }
 
@@ -247,7 +250,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '#${pickedColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+                    '#${pickedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 16),
                   ),
                 ],
@@ -291,35 +294,41 @@ class _SettingsPageState extends State<SettingsPage> {
             Card(
               child: Column(
                 children: [
-                  RadioListTile<ThemeModeType>(
-                    title: const Text('跟随系统'),
-                    value: ThemeModeType.auto,
+                  // 使用 RadioGroup 统一管理分组选中值（RadioListTile 的
+                  // groupValue/onChanged 已弃用）
+                  RadioGroup<ThemeModeType>(
                     groupValue: _themeManager.currentThemeMode,
-                    activeColor: _themeManager.accentColor,
-                    onChanged: (v) { if (v != null) _themeManager.setThemeMode(v); },
-                  ),
-                  const Divider(height: 1),
-                  RadioListTile<ThemeModeType>(
-                    title: const Text('浅色模式'),
-                    value: ThemeModeType.light,
-                    groupValue: _themeManager.currentThemeMode,
-                    activeColor: _themeManager.accentColor,
-                    onChanged: (v) { if (v != null) _themeManager.setThemeMode(v); },
-                  ),
-                  const Divider(height: 1),
-                  RadioListTile<ThemeModeType>(
-                    title: const Text('深色模式'),
-                    value: ThemeModeType.dark,
-                    groupValue: _themeManager.currentThemeMode,
-                    activeColor: _themeManager.accentColor,
-                    onChanged: (v) { if (v != null) _themeManager.setThemeMode(v); },
+                    onChanged: (v) {
+                      if (v != null) _themeManager.setThemeMode(v);
+                    },
+                    child: Column(
+                      children: [
+                        RadioListTile<ThemeModeType>(
+                          title: const Text('跟随系统'),
+                          value: ThemeModeType.auto,
+                          activeColor: _themeManager.accentColor,
+                        ),
+                        const Divider(height: 1),
+                        RadioListTile<ThemeModeType>(
+                          title: const Text('浅色模式'),
+                          value: ThemeModeType.light,
+                          activeColor: _themeManager.accentColor,
+                        ),
+                        const Divider(height: 1),
+                        RadioListTile<ThemeModeType>(
+                          title: const Text('深色模式'),
+                          value: ThemeModeType.dark,
+                          activeColor: _themeManager.accentColor,
+                        ),
+                      ],
+                    ),
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
                     title: const Text('纯黑暗色模式'),
                     subtitle: const Text('OLED 屏幕更省电，黑色更深邃'),
                     value: _themeManager.usePureBlack,
-                    activeColor: _themeManager.accentColor,
+                    activeThumbColor: _themeManager.accentColor,
                     onChanged: _themeManager.setUsePureBlack,
                   ),
                 ],
@@ -335,7 +344,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     title: const Text('跟随系统主题色'),
                     subtitle: const Text('在 Android 12+ 上提取壁纸颜色'),
                     value: _themeManager.useDynamicColor,
-                    activeColor: _themeManager.accentColor,
+                    activeThumbColor: _themeManager.accentColor,
                     onChanged: _themeManager.setUseDynamicColor,
                   ),
                   const Divider(height: 1),
@@ -390,7 +399,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ? Text(
                             _updateStatus,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                              color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                             ),
                           )
                         : null,
@@ -513,7 +522,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String get _cacheSizeText {
-    if (_diskCacheBytes < 1024) return '${_diskCacheBytes} B';
+    if (_diskCacheBytes < 1024) return '$_diskCacheBytes B';
     if (_diskCacheBytes < 1024 * 1024) return '${(_diskCacheBytes / 1024).toStringAsFixed(1)} KB';
     return '${(_diskCacheBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
@@ -609,7 +618,7 @@ class _SettingsPageState extends State<SettingsPage> {
       spacing: 8,
       runSpacing: 8,
       children: _presetColors.map((color) {
-        final isSelected = color.value == currentColor.value;
+        final isSelected = color.toARGB32() == currentColor.toARGB32();
         return GestureDetector(
           onTap: () => _themeManager.setAccentColor(color),
           child: Container(

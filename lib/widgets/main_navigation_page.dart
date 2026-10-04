@@ -17,7 +17,6 @@ class MainNavigationPage extends StatefulWidget {
 class _MainNavigationPageState extends State<MainNavigationPage> {
   int _currentIndex = 0;
   final ThemeManager _themeManager = ThemeManager();
-  late final PageController _pageController;
 
   late final List<Widget> _pages;
 
@@ -34,14 +33,11 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       const FavoritesPage(),
       const HistoryPage(),
     ];
-
-    _pageController = PageController();
   }
 
   @override
   void dispose() {
     _themeManager.removeListener(_onThemeChanged);
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -120,22 +116,17 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
           ),
         ],
       ),
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(), // 禁用页面滑动
+      // IndexedStack 保持所有标签页挂载，切换时不会丢失已输入内容/分页状态
+      body: IndexedStack(
+        index: _currentIndex,
         children: _pages,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).bottomNavigationBarTheme.backgroundColor ?? Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -198,17 +189,15 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
 
     return GestureDetector(
       onTap: () {
-        _pageController.animateToPage(
-          index,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        setState(() {
+          _currentIndex = index;
+        });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? primary.withOpacity(0.1) : Colors.transparent,
+          color: isActive ? primary.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(

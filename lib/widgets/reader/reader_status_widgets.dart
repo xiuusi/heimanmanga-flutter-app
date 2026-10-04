@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ReaderLoadingWidget extends StatelessWidget {
-  const ReaderLoadingWidget({Key? key}) : super(key: key);
+  const ReaderLoadingWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,10 +32,10 @@ class ReaderErrorWidget extends StatelessWidget {
   final VoidCallback onRetry;
 
   const ReaderErrorWidget({
-    Key? key,
+    super.key,
     required this.errorMessage,
     required this.onRetry,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +70,7 @@ class ReaderErrorWidget extends StatelessWidget {
 }
 
 class ReaderLoadingOverlay extends StatelessWidget {
-  const ReaderLoadingOverlay({Key? key}) : super(key: key);
+  const ReaderLoadingOverlay({super.key});
 
   @override
   Widget build(BuildContext context) {

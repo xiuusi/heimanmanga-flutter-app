@@ -1,8 +1,18 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// release 签名凭据存放在 android/key.properties（已被 .gitignore 忽略，不入库）。
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -30,11 +40,32 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // 必须使用真实 release 密钥签名。
+            // 若 android/key.properties 缺失，下面的 taskGraph 校验会让 release 构建
+            // 明确失败，绝不静默回退到公开的 Android debug 密钥。
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            // 启用 R8 代码压缩与资源裁剪；Flutter 引擎/插件的 keep 规则见 proguard-rules.pro
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 
@@ -58,6 +89,17 @@ android {
                 output.outputFileName = fileName
             }
         }
+    }
+}
+
+// 只在真正要打 release 包时校验签名凭据，避免影响 debug 构建与 IDE 同步。
+gradle.taskGraph.whenReady {
+    val buildingRelease = allTasks.any { it.name.contains("Release") }
+    if (buildingRelease && !keystorePropertiesFile.exists()) {
+        throw GradleException(
+            "缺少 android/key.properties：release 包必须使用真实签名密钥，" +
+                "不会回退到公开的 Android debug 密钥。请按 README「发布签名」一节创建该文件。"
+        )
     }
 }
 

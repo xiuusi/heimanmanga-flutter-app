@@ -51,7 +51,7 @@ class PageAnimationManager {
 
   /// 获取点击翻页的动画配置
   PageAnimationConfig getTapAnimationConfig() {
-    return PageAnimationConfig(
+    return const PageAnimationConfig(
       duration: _baseAnimationDuration,
       curve: Curves.easeInOut,
       type: AnimationType.tap,
@@ -70,7 +70,7 @@ class PageAnimationManager {
 
   /// 获取跳转动画配置
   PageAnimationConfig getJumpAnimationConfig() {
-    return PageAnimationConfig(
+    return const PageAnimationConfig(
       duration: Duration(milliseconds: 500),
       curve: Curves.easeInOut,
       type: AnimationType.jump,
@@ -139,60 +139,5 @@ class PhysicsPageSimulator {
       final smoothPart = math.sin(progress * math.pi / 2) * 0.3;
       return linearPart + smoothPart;
     }
-  }
-}
-
-/// 动画性能监控器
-class AnimationPerformanceMonitor {
-  static final AnimationPerformanceMonitor _instance = AnimationPerformanceMonitor._internal();
-  factory AnimationPerformanceMonitor() => _instance;
-  AnimationPerformanceMonitor._internal();
-
-  final List<double> _frameTimes = [];
-  static const int _maxSamples = 60; // 约1秒的数据
-
-  /// 记录帧时间
-  void recordFrameTime(double frameTimeMs) {
-    _frameTimes.add(frameTimeMs);
-
-    // 保持最近的数据
-    if (_frameTimes.length > _maxSamples) {
-      _frameTimes.removeAt(0);
-    }
-  }
-
-  /// 获取平均帧时间
-  double getAverageFrameTime() {
-    if (_frameTimes.isEmpty) return 16.67; // 60fps
-
-    final sum = _frameTimes.reduce((a, b) => a + b);
-    return sum / _frameTimes.length;
-  }
-
-  /// 检查是否帧率过低
-  bool isFrameRateLow() {
-    final avgFrameTime = getAverageFrameTime();
-    return avgFrameTime > 33.33; // 低于30fps
-  }
-
-  /// 获取推荐的动画持续时间
-  Duration getRecommendedAnimationDuration() {
-    final avgFrameTime = getAverageFrameTime();
-
-    if (avgFrameTime > 25.0) {
-      // 帧率较低，使用更短的动画
-      return Duration(milliseconds: 200);
-    } else if (avgFrameTime > 20.0) {
-      // 中等帧率
-      return Duration(milliseconds: 250);
-    } else {
-      // 高帧率，使用标准动画
-      return Duration(milliseconds: 280);
-    }
-  }
-
-  /// 清理数据
-  void clear() {
-    _frameTimes.clear();
   }
 }

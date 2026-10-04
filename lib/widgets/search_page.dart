@@ -23,6 +23,13 @@ class _SearchPageState extends State<SearchPage>
   bool _hasSearched = false;
   int _currentPage = 1;
   bool _isLoadingMore = false;
+  bool _hasReachedEnd = false;
+
+  /// 请求序号：每次新搜索自增，用于丢弃过期响应（P2-15）
+  int _searchRequestId = 0;
+
+  /// 单页数量，与 MangaApiService.searchManga 的默认 limit 保持一致
+  static const int _pageSize = 21;
 
   late AnimationController _heroAnimationController;
   late Animation<double> _fadeAnimation;
@@ -31,6 +38,8 @@ class _SearchPageState extends State<SearchPage>
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // 监听输入框文本变化，仅用于刷新清除按钮的显示（P3）
+    _searchController.addListener(_onSearchChanged);
 
     _heroAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -50,16 +59,26 @@ class _SearchPageState extends State<SearchPage>
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.dispose();
     _heroAnimationController.dispose();
     super.dispose();
   }
 
+  /// 输入框文本变化时仅刷新清除按钮的显示，不自动触发搜索
+  void _onSearchChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _onScroll() {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 200 &&
         !_isLoadingMore &&
+        !_isLoading &&
+        !_hasReachedEnd &&
         _searchResults.isNotEmpty) {
       _loadMoreResults();
     }
@@ -69,60 +88,85 @@ class _SearchPageState extends State<SearchPage>
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
+    // 新的请求序号：在途的旧搜索/加载更多响应都会被丢弃（P2-15）
+    final requestId = ++_searchRequestId;
+
     setState(() {
       _isLoading = true;
       _currentPage = 1;
       _hasSearched = true;
+      _hasReachedEnd = false;
+      _isLoadingMore = false;
     });
 
     try {
       final results = await MangaApiService.searchManga(
         query,
-        page: _currentPage,
+        page: 1,
+        limit: _pageSize,
         searchType: _searchType.name,
       );
 
+      if (requestId != _searchRequestId) return;
+      if (!mounted) return;
+
       setState(() {
         _searchResults = results.data;
+        _currentPage = 1;
         _isLoading = false;
+        // 返回不足一页，或已达到总页数，则判定到底（P2-14）
+        _hasReachedEnd = results.data.length < _pageSize ||
+            (results.totalPages > 0 && results.page >= results.totalPages);
       });
     } catch (e) {
+      if (requestId != _searchRequestId) return;
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('搜索失败: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('搜索失败: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _loadMoreResults() async {
-    if (_isLoadingMore) return;
+    if (_isLoadingMore || _isLoading || _hasReachedEnd) return;
+
+    final requestId = _searchRequestId;
+    final nextPage = _currentPage + 1;
 
     setState(() {
       _isLoadingMore = true;
-      _currentPage++;
     });
 
     try {
       final results = await MangaApiService.searchManga(
         _searchController.text.trim(),
-        page: _currentPage,
+        page: nextPage,
+        limit: _pageSize,
         searchType: _searchType.name,
       );
 
+      // 过期响应直接丢弃，避免把旧查询的第二页追加到新列表（P2-15）
+      if (requestId != _searchRequestId) return;
+      if (!mounted) return;
+
       setState(() {
         _searchResults.addAll(results.data);
+        // 成功后才自增页码，失败时页码保持不变（无需回滚）
+        _currentPage = nextPage;
         _isLoadingMore = false;
+        _hasReachedEnd = results.data.length < _pageSize ||
+            (results.totalPages > 0 && nextPage >= results.totalPages);
       });
     } catch (e) {
-      _currentPage--; // 回滚页码
+      if (requestId != _searchRequestId) return;
+      if (!mounted) return;
       setState(() {
         _isLoadingMore = false;
       });
@@ -146,7 +190,7 @@ class _SearchPageState extends State<SearchPage>
                   end: Alignment.bottomCenter,
                   colors: [
                     primary,
-                    primary.withOpacity(0.8),
+                    primary.withValues(alpha: 0.8),
                   ],
                 ),
               ),
@@ -179,11 +223,12 @@ class _SearchPageState extends State<SearchPage>
                         // 搜索框
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            // 使用主题表面色，保证暗色模式下文字依然可读（P3）
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(50),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
+                                color: Colors.black.withValues(alpha: 0.2),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
@@ -200,9 +245,14 @@ class _SearchPageState extends State<SearchPage>
                                       icon: const Icon(Icons.clear),
                                       onPressed: () {
                                         _searchController.clear();
+                                        // 使在途请求失效，避免旧响应回填已清空的结果
+                                        _searchRequestId++;
                                         setState(() {
                                           _searchResults.clear();
                                           _hasSearched = false;
+                                          _hasReachedEnd = false;
+                                          _isLoadingMore = false;
+                                          _currentPage = 1;
                                         });
                                       },
                                     )
@@ -246,21 +296,21 @@ class _SearchPageState extends State<SearchPage>
                                     }
                                   }
                                 },
-                                backgroundColor: Colors.white.withOpacity(0.3),
+                                backgroundColor: Colors.white.withValues(alpha: 0.3),
                                 selectedColor: Colors.white,
                                 labelStyle: TextStyle(
-                                  color: isSelected ? primary : Colors.white.withOpacity(0.95),
+                                  color: isSelected ? primary : Colors.white.withValues(alpha: 0.95),
                                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                   shadows: [
                                     Shadow(
-                                      color: Colors.black.withOpacity(isSelected ? 0.1 : 0.4),
+                                      color: Colors.black.withValues(alpha: isSelected ? 0.1 : 0.4),
                                       offset: const Offset(0, 1),
                                       blurRadius: 2,
                                     ),
                                   ],
                                 ),
                                 side: BorderSide(
-                                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.5),
+                                  color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.5),
                                 ),
                               ),
                             );
@@ -305,7 +355,7 @@ class _SearchPageState extends State<SearchPage>
               SliverToBoxAdapter(
                 child: Center(
                   child: Padding(
-                    padding: EdgeInsets.all(50),
+                    padding: const EdgeInsets.all(50),
                     child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(primary),
                     ),
@@ -359,7 +409,7 @@ class _SearchPageState extends State<SearchPage>
                       if (index == _searchResults.length && _isLoadingMore) {
                         return Center(
                           child: Padding(
-                            padding: EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(16),
                             child: CircularProgressIndicator(
                               valueColor: AlwaysStoppedAnimation<Color>(primary),
                             ),

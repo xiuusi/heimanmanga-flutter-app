@@ -40,13 +40,17 @@ class Manga {
       fileSize: DataParsers.parseIntWithDefault(json['file_size'] ?? json['fileSize']),
       uploadTime: DataParsers.parseString(json['upload_time'] ?? json['uploadTime']),
       chapters: DataParsers.parseList(json['chapters'])
-              ?.map((item) => Chapter.fromJson(item as Map<String, dynamic>))
-              .toList()
-          ?? [],
+              ?.map(DataParsers.parseMap)
+              .whereType<Map<String, dynamic>>()
+              .map((item) => Chapter.fromJson(item))
+              .toList() ??
+          [],
       tags: DataParsers.parseList(json['tags'])
-              ?.map((item) => TagModel.fromJson(item as Map<String, dynamic>))
-              .toList()
-          ?? [],
+              ?.map(DataParsers.parseMap)
+              .whereType<Map<String, dynamic>>()
+              .map((item) => TagModel.fromJson(item))
+              .toList() ??
+          [],
     );
   }
 }
@@ -86,9 +90,8 @@ class Chapter {
         imageUrls.add(MangaApiService.getChapterImageUrl(mangaId, id, imageFileName));
       }
     } else if (imageIdMap != null && imageIdMap!.isNotEmpty) {
-      // 如果有imageIdMap，按照键的顺序排序以确保正确的图片顺序
-      var sortedKeys = imageIdMap!.keys.toList()..sort();
-      for (String key in sortedKeys) {
+      // JSON map 本身保持插入顺序；不能按字典序排序（"1","10","2" 会变成 1,10,2 的错误页序）
+      for (String key in imageIdMap!.keys) {
         String fileName = imageIdMap![key]!;
         imageUrls.add(MangaApiService.getChapterImageUrl(mangaId, id, fileName));
       }
@@ -153,9 +156,11 @@ class MangaListResponse {
   factory MangaListResponse.fromJson(Map<String, dynamic> json) {
     return MangaListResponse(
       data: DataParsers.parseList(json['data'])
-              ?.map((item) => Manga.fromJson(item as Map<String, dynamic>))
-              .toList()
-          ?? [],
+              ?.map(DataParsers.parseMap)
+              .whereType<Map<String, dynamic>>()
+              .map((item) => Manga.fromJson(item))
+              .toList() ??
+          [],
       total: DataParsers.parseIntWithDefault(json['total']),
       page: DataParsers.parseIntWithDefault(json['page']),
       limit: DataParsers.parseIntWithDefault(json['limit']),
@@ -189,11 +194,11 @@ class CarouselImage {
     return CarouselImage(
       id: DataParsers.parseIntWithDefault(json['id']),
       title: DataParsers.parseString(json['title']),
-      linkUrl: DataParsers.parseString(json['link_url']),
-      imagePath: DataParsers.parseString(json['image_path']),
-      sortOrder: DataParsers.parseIntWithDefault(json['sort_order']),
-      isActive: DataParsers.parseBool(json['is_active'] ?? true),
-      createdAt: DataParsers.parseString(json['created_at']),
+      linkUrl: DataParsers.parseString(json['link_url'] ?? json['linkUrl']),
+      imagePath: DataParsers.parseString(json['image_path'] ?? json['imagePath']),
+      sortOrder: DataParsers.parseIntWithDefault(json['sort_order'] ?? json['sortOrder']),
+      isActive: DataParsers.parseBool(json['is_active'] ?? json['isActive'] ?? true),
+      createdAt: DataParsers.parseString(json['created_at'] ?? json['createdAt']),
     );
   }
 }
@@ -216,9 +221,11 @@ class CarouselResponse {
   factory CarouselResponse.fromJson(Map<String, dynamic> json) {
     return CarouselResponse(
       data: DataParsers.parseList(json['data'])
-              ?.map((item) => CarouselImage.fromJson(item as Map<String, dynamic>))
-              .toList()
-          ?? [],
+              ?.map(DataParsers.parseMap)
+              .whereType<Map<String, dynamic>>()
+              .map((item) => CarouselImage.fromJson(item))
+              .toList() ??
+          [],
       total: DataParsers.parseIntWithDefault(json['total']),
       page: DataParsers.parseIntWithDefault(json['page']),
       limit: DataParsers.parseIntWithDefault(json['limit']),
